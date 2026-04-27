@@ -1,0 +1,265 @@
+# ============================================================
+# ImmunoForge — Default Pipeline Configuration
+# ============================================================
+
+project:
+  name: "ImmunoForge"
+  version: "0.1.0"
+  description: "De novo immune cell targeting protein design platform"
+
+# ── Species support ──
+species:
+  default: "mouse"
+  available:
+    - mouse        # Mus musculus
+    - human        # Homo sapiens
+    - cynomolgus   # Macaca fascicularis
+
+# ── Target configuration (per-run override) ──
+targets:
+  target1:
+    name: "mCLEC9A"
+    uniprot: "Q8BRU4"
+    source: "alphafold"          # alphafold | pdb
+    pdb_id: null                 # if source=pdb, set PDB ID
+    af_id: "AF-Q8BRU4-F1"       # if source=alphafold
+    chain: "A"
+    residue_range: "116-238"
+    hotspot_residues: [120, 145, 147, 169, 187, 199, 221, 223, 224, 229]
+    organism: "Mus musculus"
+    cell_type: "cDC1"
+
+  target2:
+    name: "mCD3E"
+    uniprot: "P22646"
+    source: "alphafold"
+    pdb_id: null
+    af_id: "AF-P22646-F1"
+    chain: "A"
+    residue_range: "23-104"
+    hotspot_residues: [30, 32, 36, 41, 52, 72, 77, 78, 79, 86]
+    organism: "Mus musculus"
+    cell_type: "CD8 T cell"
+
+# ── RFdiffusion parameters ──
+rfdiffusion:
+  model: "RFdiffusion_v3"
+  model_dir: "/home/data/liyanze/tools/RFdiffusion/models"
+  n_designs_per_target: 50
+  binder_length: "70-100"
+  diffusion_steps: 50
+  noise_scale_ca: 1.0
+  noise_scale_frame: 1.0
+  hotspot_guidance: true
+  dual_target_designs: 15
+  dual_strategies: 3
+
+# ── ProteinMPNN parameters ──
+proteinmpnn:
+  model: "soluble"
+  sampling_temperature: 0.1
+  sequences_per_backbone: 8
+  design_chain_only: true
+
+# ── Sequence QC thresholds ──
+sequence_qc:
+  protease_checks:
+    furin: {pattern: "R.[KR]R", action: "reject"}
+    thrombin: {pattern: "LVPRGS", action: "reject"}
+    enterokinase: {pattern: "DDDDK", action: "reject"}
+    mmp_motifs: {patterns: ["PxxP", "PLG"], max_density_pct: 5.0}
+    cathepsin_b_gflg: {pattern: "GFLG", action: "reject"}
+    cathepsin_b_dibasic: {patterns: ["KK", "RR", "KR", "RK"], max_density_pct: 5.0}
+  toxicity:
+    poly_cationic: {pattern: "[RK]{6,}", action: "reject"}
+    nls_signal: {pattern: "[KR]{4}.[KR]{3}", action: "reject"}
+  aggregation:
+    apr_pattern: "[VILMFYW]{5,}"
+    action: "reject"
+  cysteine:
+    require_even: true
+  isoelectric_point:
+    min_pi: 4.5
+    max_pi: 10.5
+
+# ── Structure validation ──
+structure_validation:
+  method: "auto"                   # auto | esmfold | af2_multimer | heuristic_plddt
+  dual_evaluation: true            # ESMFold pLDDT + ESM-2 perplexity
+  high_threshold:
+    mean_plddt: 85
+    fraction_above_70: 0.80
+  medium_threshold:
+    mean_plddt: 70
+    fraction_above_70: 0.60
+  pass_levels: ["HIGH", "MEDIUM"]
+
+# ── Automatic hotspot prediction (AF2BIND-style) ──
+hotspot_prediction:
+  enabled: true                    # auto-predict hotspots when manual not specified
+  method: "auto"                   # auto | esm2_attention | heuristic
+  top_k: 10                       # number of hotspot residues to predict
+
+# ── Multi-stage sequence optimization (BindCraft-inspired) ──
+sequence_optimization:
+  enabled: true                    # enable B3a multi-stage optimization
+  temperatures: [1.0, 0.5, 0.2, 0.1]  # ProteinMPNN sampling temperatures
+  seqs_per_temperature: 4         # sequences per temperature per backbone
+  helicity_weight: 0.1            # negative helicity loss weight
+  stage2_top_k: 8                 # top-K from ESMFold scoring
+  stage3_mutations_per_candidate: 10  # greedy mutations per candidate (interface-biased)
+  stage3_interface_bias: 0.7          # probability of mutating at interface position
+  stage4_top_n: 4                 # final candidates per backbone
+
+# ── Binding affinity ──
+affinity:
+  methods:
+    - prodigy_ics
+    - rosetta_ref2015
+    - bsa_regression
+  consensus: "geometric_mean"
+  hotspot_analysis: true
+  confidence_threshold_log10: 1.0   # high < 1.0, moderate 1.0-2.0
+
+# ── Candidate ranking ──
+ranking:
+  weights:
+    plddt: 0.20
+    ddg: 0.20
+    kd: 0.15
+    mpnn_score: 0.15
+    bsa: 0.10
+    shape_complementarity: 0.10
+    baseline: 0.10
+  penalties:
+    high_aggregation: -0.10
+    extreme_pi: -0.05
+  top_n: 20
+  synthesis_top_n: 5
+
+# ── Codon optimization ──
+codon_optimization:
+  species_tables:
+    mouse: "kazusa_mus_musculus"
+    human: "kazusa_homo_sapiens"
+    cynomolgus: "kazusa_macaca_fascicularis"
+  gc_content_target: [0.48, 0.52]
+  avoid_patterns:
+    vaccinia_t5nt: "TTTTTNT"
+  restriction_sites_avoid:
+    - BamHI
+    - EcoRI
+    - HindIII
+    - NotI
+    - XhoI
+    - NdeI
+    - NcoI
+    - BglII
+    - SalI
+  signal_peptides:
+    il2_leader:
+      name: "IL-2 leader"
+      sequence: "MYRMQLLSCIALSLALVTNS"
+    igk_leader:
+      name: "IgG kappa leader"
+      sequence: "METDTLLLWVLLLWVPGSTGD"
+  expression_systems:
+    vaccinia:
+      promoter: "pSE/L"
+      kozak: "GCCACCATG"
+      insertion_locus: "TK"
+      cassette_format: "TK-pSE/L-Kozak-SP-CDS-polyA-TK"
+    aav:
+      promoter: "CMV"
+      kozak: "GCCACCATG"
+    lentivirus:
+      promoter: "EF1a"
+      kozak: "GCCACCATG"
+
+# ── Output paths ──
+paths:
+  output_dir: "outputs"
+  data_dir: "data"
+  structures_dir: "data/structures"
+  logs_dir: "outputs/logs"
+
+# ── AF3-Multimer ternary complex validation (Boltz-2) ──
+af3_validation:
+  enabled: true                    # enable B9a AF3 ternary prediction
+  top_n: 5                        # number of top candidates to validate
+  recycling_steps: 3              # Boltz recycling steps
+  sampling_steps: 200             # diffusion sampling steps
+  diffusion_samples: 1            # number of structure samples per candidate
+  timeout_per_prediction: 600     # max seconds per prediction
+
+# ── AF2-Multimer orthogonal filter (ColabFold) ──
+af2_filter:
+  enabled: true                    # enable B4c AF2-multimer filtering
+  max_candidates: 10               # max candidates to score with AF2
+  iptm_reject_threshold: 0.4      # reject candidates below this ipTM
+  iptm_high_threshold: 0.7        # classify as HIGH above this ipTM
+
+# ── Conditional affinity maturation ──
+affinity_maturation:
+  enabled: true                    # enable B9b conditional maturation
+  kd_threshold_nM: 100.0          # mature candidates with K_D above this
+  target_kd_nM: 50.0              # target K_D to achieve
+  max_generations: 8              # max maturation rounds (increased from 5)
+  candidates_per_gen: 30          # candidates per generation (increased from 20)
+  top_k_per_gen: 5                # top-K selection per generation
+  temperatures: [0.1, 0.3]        # ProteinMPNN resampling temperatures
+  seed: 42
+
+# ── Web server ──
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: false
+
+# ── De novo binder design profile ──
+# Optimized parameters for helical bundle miniprotein binders.
+# Key differences vs antibody defaults:
+#   - Shorter binder length (50-80 aa) → higher helical propensity, lower immunogenicity
+#   - Higher ProteinMPNN temperatures early → broader conformational sampling
+#   - More designs per target (100 vs 50) → compensate for lower hit rates
+#   - binder_type: "de_novo" → activates de novo calibration δ in consensus K_D
+denovo_profile:
+  binder_type: "de_novo"
+  rfdiffusion:
+    binder_length: "50-80"
+    n_designs_per_target: 100
+    diffusion_steps: 50
+    noise_scale_ca: 1.0
+    noise_scale_frame: 1.0
+    # Contiguous chain, no CDR constraint
+    contig_spec: "binder"
+  proteinmpnn:
+    model: "soluble"
+    sampling_temperature: 0.2
+    sequences_per_backbone: 16
+    design_chain_only: true
+  sequence_optimization:
+    temperatures: [1.0, 0.5, 0.2, 0.1]
+    seqs_per_temperature: 8
+    helicity_weight: 0.2
+    stage2_top_k: 16
+    stage3_mutations_per_candidate: 15
+    stage3_interface_bias: 0.8
+    stage4_top_n: 8
+  affinity_maturation:
+    kd_threshold_nM: 50.0
+    target_kd_nM: 10.0
+    max_generations: 10
+    candidates_per_gen: 40
+    top_k_per_gen: 8
+    temperatures: [0.1, 0.2, 0.3]
+  ranking:
+    weights:
+      plddt: 0.25
+      ddg: 0.15
+      kd: 0.20
+      mpnn_score: 0.15
+      bsa: 0.10
+      shape_complementarity: 0.10
+      baseline: 0.05

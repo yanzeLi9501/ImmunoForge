@@ -1,0 +1,556 @@
+{
+    "description": "ImmunoForge Gold-Standard Validation Dataset",
+    "version": "1.0",
+    "source": "METHODS_AND_RESULTS Section 8: Known Protein Validation Set",
+    "categories": {
+        "T_cell": {
+            "description": "T cell surface targets (CD3E, PD-1, CTLA-4, LAG-3, TIM-3, TIGIT)",
+            "entries": [
+                {
+                    "target": "CD3E",
+                    "pdb_ids": [
+                        "6JXR",
+                        "1XIW"
+                    ],
+                    "uniprot": "P07766",
+                    "known_binders": [
+                        {
+                            "name": "OKT3",
+                            "type": "antibody",
+                            "kd_nM": 1.0,
+                            "source": "Clinical mAb"
+                        },
+                        {
+                            "name": "UCHT1",
+                            "type": "antibody",
+                            "kd_nM": 3.0
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        0.5,
+                        50
+                    ]
+                },
+                {
+                    "target": "PD-1",
+                    "pdb_ids": [
+                        "5WT9",
+                        "4ZQK",
+                        "5B8C"
+                    ],
+                    "uniprot": "Q15116",
+                    "known_binders": [
+                        {
+                            "name": "Nivolumab",
+                            "type": "antibody",
+                            "kd_nM": 2.6
+                        },
+                        {
+                            "name": "Pembrolizumab",
+                            "type": "antibody",
+                            "kd_nM": 0.027
+                        },
+                        {
+                            "name": "Cemiplimab",
+                            "type": "antibody",
+                            "kd_nM": 0.6
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        0.1,
+                        100
+                    ]
+                },
+                {
+                    "target": "CTLA-4",
+                    "pdb_ids": [
+                        "3OSK",
+                        "1I8L"
+                    ],
+                    "uniprot": "P16410",
+                    "known_binders": [
+                        {
+                            "name": "Ipilimumab",
+                            "type": "antibody",
+                            "kd_nM": 6.2
+                        },
+                        {
+                            "name": "Tremelimumab",
+                            "type": "antibody",
+                            "kd_nM": 5.9
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        1,
+                        200
+                    ]
+                },
+                {
+                    "target": "LAG-3",
+                    "pdb_ids": [
+                        "7TZG"
+                    ],
+                    "uniprot": "P18627",
+                    "known_binders": [
+                        {
+                            "name": "Relatlimab",
+                            "type": "antibody",
+                            "kd_nM": 1.5
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        0.5,
+                        100
+                    ]
+                },
+                {
+                    "target": "TIM-3",
+                    "pdb_ids": [
+                        "5F71"
+                    ],
+                    "uniprot": "Q8TDQ0",
+                    "known_binders": [
+                        {
+                            "name": "Sabatolimab",
+                            "type": "antibody",
+                            "kd_nM": 2.0
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        1,
+                        200
+                    ]
+                },
+                {
+                    "target": "TIGIT",
+                    "pdb_ids": [
+                        "3UCR"
+                    ],
+                    "uniprot": "Q495A1",
+                    "known_binders": [
+                        {
+                            "name": "Tiragolumab",
+                            "type": "antibody",
+                            "kd_nM": 0.4
+                        }
+                    ],
+                    "de_novo_expected_kd_range_nM": [
+                        0.5,
+                        100
+                    ]
+                }
+            ]
+        },
+        "DC": {
+            "description": "Dendritic cell targets (CLEC9A, DEC-205, DC-SIGN, XCR1, CLEC12A)",
+            "entries": [
+                {
+                    "target": "CLEC9A",
+                    "pdb_ids": [
+                        "3VPP"
+                    ],
+                    "uniprot": "Q6UXN8",
+                    "known_binders": [
+                        {
+                            "name": "10B12",
+                            "type": "antibody",
+                            "kd_nM": 0.4
+                        }
+                    ]
+                },
+                {
+                    "target": "DEC-205",
+                    "pdb_ids": [
+                        "6OBB"
+                    ],
+                    "uniprot": "Q9UBG0",
+                    "known_binders": [
+                        {
+                            "name": "MG38.2",
+                            "type": "antibody",
+                            "kd_nM": 1.5
+                        }
+                    ]
+                },
+                {
+                    "target": "DC-SIGN",
+                    "pdb_ids": [
+                        "1SL4"
+                    ],
+                    "uniprot": "Q9NNX6",
+                    "known_binders": [
+                        {
+                            "name": "h15E7",
+                            "type": "antibody",
+                            "kd_nM": 3.0
+                        }
+                    ]
+                },
+                {
+                    "target": "XCR1",
+                    "pdb_ids": [],
+                    "uniprot": "P46094",
+                    "known_binders": [
+                        {
+                            "name": "XCL1_natural",
+                            "type": "natural_ligand",
+                            "kd_nM": 50.0
+                        }
+                    ]
+                }
+            ]
+        },
+        "NK_cell": {
+            "description": "NK cell targets (NKG2D, NKp46, NKp30, CD16a)",
+            "entries": [
+                {
+                    "target": "NKG2D",
+                    "pdb_ids": [
+                        "1HQ8",
+                        "4PBL"
+                    ],
+                    "uniprot": "P26718",
+                    "known_binders": [
+                        {
+                            "name": "MICA",
+                            "type": "natural_ligand",
+                            "kd_nM": 1000.0
+                        },
+                        {
+                            "name": "ULBP2",
+                            "type": "natural_ligand",
+                            "kd_nM": 500.0
+                        },
+                        {
+                            "name": "ULBP3",
+                            "type": "natural_ligand",
+                            "kd_nM": 300.0
+                        }
+                    ]
+                },
+                {
+                    "target": "NKp46",
+                    "pdb_ids": [
+                        "1P6F"
+                    ],
+                    "uniprot": "O76036",
+                    "known_binders": [
+                        {
+                            "name": "Vimentin_frag",
+                            "type": "natural_ligand",
+                            "kd_nM": 2000.0
+                        }
+                    ]
+                },
+                {
+                    "target": "NKp30",
+                    "pdb_ids": [
+                        "3NOI"
+                    ],
+                    "uniprot": "O14931",
+                    "known_binders": [
+                        {
+                            "name": "B7-H6",
+                            "type": "natural_ligand",
+                            "kd_nM": 1100.0
+                        }
+                    ]
+                },
+                {
+                    "target": "CD16a",
+                    "pdb_ids": [
+                        "1E4J"
+                    ],
+                    "uniprot": "P08637",
+                    "known_binders": [
+                        {
+                            "name": "IgG1_Fc",
+                            "type": "natural_ligand",
+                            "kd_nM": 700.0
+                        }
+                    ]
+                }
+            ]
+        },
+        "B_cell": {
+            "description": "B cell targets (CD19, CD20, BCMA, CD22, BAFF-R)",
+            "entries": [
+                {
+                    "target": "CD19",
+                    "pdb_ids": [
+                        "6AL5"
+                    ],
+                    "uniprot": "P15391",
+                    "known_binders": [
+                        {
+                            "name": "FMC63",
+                            "type": "antibody",
+                            "kd_nM": 5.0
+                        },
+                        {
+                            "name": "Blinatumomab_anti-CD19",
+                            "type": "antibody",
+                            "kd_nM": 1.5
+                        }
+                    ]
+                },
+                {
+                    "target": "CD20",
+                    "pdb_ids": [
+                        "6Y4G"
+                    ],
+                    "uniprot": "P11836",
+                    "known_binders": [
+                        {
+                            "name": "Rituximab",
+                            "type": "antibody",
+                            "kd_nM": 8.0
+                        },
+                        {
+                            "name": "Obinutuzumab",
+                            "type": "antibody",
+                            "kd_nM": 4.0
+                        }
+                    ]
+                },
+                {
+                    "target": "BCMA",
+                    "pdb_ids": [
+                        "1OQD"
+                    ],
+                    "uniprot": "Q02223",
+                    "known_binders": [
+                        {
+                            "name": "Belantamab",
+                            "type": "antibody",
+                            "kd_nM": 0.4
+                        },
+                        {
+                            "name": "APRIL",
+                            "type": "natural_ligand",
+                            "kd_nM": 16.0
+                        }
+                    ]
+                },
+                {
+                    "target": "CD22",
+                    "pdb_ids": [
+                        "5VKJ"
+                    ],
+                    "uniprot": "P20273",
+                    "known_binders": [
+                        {
+                            "name": "Inotuzumab",
+                            "type": "antibody",
+                            "kd_nM": 0.18
+                        }
+                    ]
+                }
+            ]
+        },
+        "macrophage": {
+            "description": "Macrophage targets (CD47, SIRPa, CSF1R, CD40, TREM2)",
+            "entries": [
+                {
+                    "target": "CD47",
+                    "pdb_ids": [
+                        "2JJS",
+                        "2VSC"
+                    ],
+                    "uniprot": "Q08722",
+                    "known_binders": [
+                        {
+                            "name": "SIRPa_D1",
+                            "type": "natural_ligand",
+                            "kd_nM": 1000.0
+                        },
+                        {
+                            "name": "Magrolimab",
+                            "type": "antibody",
+                            "kd_nM": 1.0
+                        },
+                        {
+                            "name": "CV1_engineered",
+                            "type": "engineered",
+                            "kd_nM": 0.011
+                        }
+                    ]
+                },
+                {
+                    "target": "SIRPa",
+                    "pdb_ids": [
+                        "4CMF"
+                    ],
+                    "uniprot": "P78324",
+                    "known_binders": [
+                        {
+                            "name": "CD47_natural",
+                            "type": "natural_ligand",
+                            "kd_nM": 1000.0
+                        },
+                        {
+                            "name": "CD47v_highAff",
+                            "type": "engineered",
+                            "kd_nM": 0.011
+                        }
+                    ]
+                },
+                {
+                    "target": "CSF1R",
+                    "pdb_ids": [
+                        "4R7H"
+                    ],
+                    "uniprot": "P07333",
+                    "known_binders": [
+                        {
+                            "name": "CSF1_natural",
+                            "type": "natural_ligand",
+                            "kd_nM": 10.0
+                        }
+                    ]
+                },
+                {
+                    "target": "CD40",
+                    "pdb_ids": [
+                        "3QD6"
+                    ],
+                    "uniprot": "P25942",
+                    "known_binders": [
+                        {
+                            "name": "Selicrelumab",
+                            "type": "antibody",
+                            "kd_nM": 0.5
+                        },
+                        {
+                            "name": "CD40L_natural",
+                            "type": "natural_ligand",
+                            "kd_nM": 50.0
+                        }
+                    ]
+                }
+            ]
+        },
+        "de_novo_gold_standards": {
+            "description": "Experimentally validated de novo designed binders from literature",
+            "entries": [
+                {
+                    "target": "TrkA",
+                    "pdb_ids": [
+                        "7SI2"
+                    ],
+                    "source": "Cao et al., Nature 605:551 (2022)",
+                    "known_binders": [
+                        {
+                            "name": "RFdiffusion_binder_1",
+                            "type": "de_novo",
+                            "kd_nM": 15.0
+                        }
+                    ]
+                },
+                {
+                    "target": "IL-7Ra",
+                    "pdb_ids": [
+                        "7SI3"
+                    ],
+                    "source": "Cao et al., Nature 605:551 (2022)",
+                    "known_binders": [
+                        {
+                            "name": "RFdiffusion_binder_2",
+                            "type": "de_novo",
+                            "kd_nM": 50.0
+                        }
+                    ]
+                },
+                {
+                    "target": "PD-L1",
+                    "pdb_ids": [
+                        "8DS6"
+                    ],
+                    "source": "Watson et al., Nature 620:1089 (2023)",
+                    "known_binders": [
+                        {
+                            "name": "RFdiffusion_binder_3",
+                            "type": "de_novo",
+                            "kd_nM": 2.0
+                        }
+                    ]
+                },
+                {
+                    "target": "Influenza_HA",
+                    "pdb_ids": [
+                        "7UIM"
+                    ],
+                    "source": "Watson et al., Nature 620:1089 (2023)",
+                    "known_binders": [
+                        {
+                            "name": "RFdiffusion_binder_4",
+                            "type": "de_novo",
+                            "kd_nM": 5.0
+                        }
+                    ]
+                },
+                {
+                    "target": "EGFR",
+                    "pdb_ids": [
+                        "1NQL"
+                    ],
+                    "source": "Baker lab benchmarks",
+                    "known_binders": [
+                        {
+                            "name": "RFdiffusion_binder_5",
+                            "type": "de_novo",
+                            "kd_nM": 30.0
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "pdb_download_list": [
+        "6JXR",
+        "1XIW",
+        "5WT9",
+        "4ZQK",
+        "5B8C",
+        "3OSK",
+        "1I8L",
+        "7TZG",
+        "5F71",
+        "3UCR",
+        "3VPP",
+        "6OBB",
+        "1SL4",
+        "1HQ8",
+        "4PBL",
+        "1P6F",
+        "3NOI",
+        "1E4J",
+        "6AL5",
+        "6Y4G",
+        "1OQD",
+        "5VKJ",
+        "2JJS",
+        "2VSC",
+        "4CMF",
+        "4R7H",
+        "3QD6",
+        "7SI2",
+        "7SI3",
+        "8DS6",
+        "7UIM",
+        "1NQL"
+    ],
+    "validation_metrics": {
+        "primary": "spearman_rank_correlation",
+        "secondary": [
+            "mean_absolute_log10_error",
+            "fraction_within_1_log",
+            "fraction_within_1.5_log"
+        ],
+        "acceptance_criteria": {
+            "spearman_rho_min": 0.6,
+            "male_max": 1.5,
+            "fraction_1_log_min": 0.5
+        }
+    }
+}

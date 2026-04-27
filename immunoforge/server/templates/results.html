@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results — ImmunoForge</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"><span class="logo">⚒</span> ImmunoForge</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/targets">Target Database</a>
+            <a href="/results" class="active">Results</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <h1>Pipeline Results</h1>
+
+        <!-- Summary Card -->
+        <section class="card" id="summaryCard">
+            <h2>Pipeline Summary</h2>
+            <div id="summaryContent">
+                <p>Loading...</p>
+            </div>
+        </section>
+
+        <!-- Funnel Chart -->
+        <section class="card">
+            <h2>Screening Funnel</h2>
+            <div id="funnelChart" class="funnel"></div>
+        </section>
+
+        <!-- Ranked Candidates -->
+        <section class="card">
+            <h2>Ranked Candidates</h2>
+            <table class="data-table" id="candidateTable">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>ID</th>
+                        <th>Target</th>
+                        <th>Score</th>
+                        <th>K<sub>D</sub> (nM)</th>
+                        <th>pLDDT</th>
+                        <th>Length</th>
+                        <th>MW (Da)</th>
+                        <th>pI</th>
+                    </tr>
+                </thead>
+                <tbody id="candidateBody"></tbody>
+            </table>
+        </section>
+
+        <!-- Step Details -->
+        <section class="card">
+            <h2>Step Results</h2>
+            <div class="step-tabs">
+                <button class="tab-btn active" onclick="loadStep('B3b')">QC</button>
+                <button class="tab-btn" onclick="loadStep('B5')">Affinity</button>
+                <button class="tab-btn" onclick="loadStep('B6')">Ranking</button>
+                <button class="tab-btn" onclick="loadStep('B7')">Codon Opt</button>
+            </div>
+            <div id="stepDetail" class="step-detail-content"></div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script>
+        async function loadResults() {
+            try {
+                const res = await fetch('/api/pipeline/results');
+                const data = await res.json();
+
+                if (data.status === 'no_results') {
+                    document.getElementById('summaryContent').innerHTML =
+                        '<p class="muted">No pipeline results yet. Run a pipeline from the Dashboard.</p>';
+                    return;
+                }
+
+                // Summary
+                const funnel = data.pipeline_funnel || {};
+                document.getElementById('summaryContent').innerHTML = `
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="summary-value">${data.species || '—'}</div>
+                            <div class="summary-label">Species</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-value">${funnel.top_ranked || 0}</div>
+                            <div class="summary-label">Top Candidates</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-value">${funnel.synthesis_ready || 0}</div>
+                            <div class="summary-label">Synthesis Ready</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-value">${(funnel.qc_pass_rate * 100 || 0).toFixed(1)}%</div>
+                            <div class="summary-label">QC Pass Rate</div>
+                        </div>
+                    </div>
+                `;
+
+                // Funnel
+                const funnelDiv = document.getElementById('funnelChart');
+                const stages = [
+                    ['RFdiffusion Backbones', funnel.rfdiffusion_backbones || 0],
+                    ['ProteinMPNN Sequences', funnel.proteinmpnn_sequences || 0],
+                    ['QC Passed', funnel.qc_passed || 0],
+                    ['Structure Validated', funnel.structure_validated || 0],
+                    ['Affinity Scored', funnel.affinity_scored || 0],
+                    ['Top Ranked', funnel.top_ranked || 0],
+                    ['Synthesis Ready', funnel.synthesis_ready || 0],
+                ];
+                const maxVal = Math.max(...stages.map(s => s[1]), 1);
+                funnelDiv.innerHTML = stages.map(([label, val]) => `
+                    <div class="funnel-row">
+                        <span class="funnel-label">${label}</span>
+                        <div class="funnel-bar-outer">
+                            <div class="funnel-bar" style="width:${(val / maxVal * 100).toFixed(0)}%">${val}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Candidates
+                const candidates = data.top_candidates || [];
+                const tbody = document.getElementById('candidateBody');
+                tbody.innerHTML = candidates.map(c => `
+                    <tr>
+                        <td>${c.rank || '—'}</td>
+                        <td>${c.id || '—'}</td>
+                        <td>${c.target || '—'}</td>
+                        <td>${(c.score || 0).toFixed(4)}</td>
+                        <td>${c.kd_nM ? c.kd_nM.toFixed(1) : '—'}</td>
+                        <td>${c.plddt || '—'}</td>
+                        <td>${c.length || '—'}</td>
+                        <td>${c.mw_da || '—'}</td>
+                        <td>${c.pI || '—'}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('summaryContent').innerHTML =
+                    `<p class="error">Error loading results: ${err.message}</p>`;
+            }
+        }
+
+        async function loadStep(step) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const detail = document.getElementById('stepDetail');
+            try {
+                const res = await fetch(`/api/pipeline/step/${step}`);
+                const data = await res.json();
+                detail.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (err) {
+                detail.innerHTML = `<p class="muted">No data for step ${step}</p>`;
+            }
+        }
+
+        loadResults();
+    </script>
+</body>
+
+</html>

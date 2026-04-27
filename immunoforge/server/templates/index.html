@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImmunoForge — De Novo Immune Cell Binder Design</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo">⚒</span> ImmunoForge
+        </div>
+        <div class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/targets">Target Database</a>
+            <a href="/results">Results</a>
+        </div>
+        <div class="nav-status" id="serverStatus">
+            <span class="status-dot online"></span> Server Online
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h1>ImmunoForge</h1>
+            <p class="subtitle">De novo immune cell targeting protein design platform</p>
+            <p class="tagline">RFdiffusion + ProteinMPNN → Sequence QC → Affinity Prediction → Codon Optimization</p>
+        </section>
+
+        <!-- Pipeline Control -->
+        <section class="card" id="pipelineControl">
+            <h2>Pipeline Control</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="species">Species</label>
+                    <select id="species">
+                        <option value="mouse" selected>Mouse (Mus musculus)</option>
+                        <option value="human">Human (Homo sapiens)</option>
+                        <option value="cynomolgus">Cynomolgus (Macaca fascicularis)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="steps">Steps</label>
+                    <select id="steps">
+                        <option value="all">All Steps (B1–B8)</option>
+                        <option value="B1,B2,B3,B3b">Design Only (B1–B3b)</option>
+                        <option value="B4,B5,B6">Analysis Only (B4–B6)</option>
+                        <option value="B7,B8">Output Only (B7–B8)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button id="runPipeline" class="btn btn-primary" onclick="startPipeline()">
+                        Run Pipeline
+                    </button>
+                </div>
+            </div>
+            <div id="pipelineStatus" class="status-bar" style="display:none;">
+                <span class="spinner"></span> <span id="statusText">Running...</span>
+            </div>
+        </section>
+
+        <!-- Pipeline Steps Overview -->
+        <section class="card">
+            <h2>Pipeline Steps</h2>
+            <div class="steps-grid">
+                <div class="step-card" data-step="B1">
+                    <div class="step-number">B1</div>
+                    <div class="step-name">Target Prep</div>
+                    <div class="step-desc">PDB/AlphaFold download, chain extraction, hotspot definition</div>
+                </div>
+                <div class="step-card" data-step="B2">
+                    <div class="step-number">B2</div>
+                    <div class="step-name">RFdiffusion</div>
+                    <div class="step-desc">Backbone scaffold generation via diffusion model</div>
+                </div>
+                <div class="step-card" data-step="B3">
+                    <div class="step-number">B3</div>
+                    <div class="step-name">ProteinMPNN</div>
+                    <div class="step-desc">Inverse folding sequence design</div>
+                </div>
+                <div class="step-card" data-step="B3b">
+                    <div class="step-number">B3b</div>
+                    <div class="step-name">Sequence QC</div>
+                    <div class="step-desc">Protease / toxicity / APR / Cys / pI filtering</div>
+                </div>
+                <div class="step-card" data-step="B4">
+                    <div class="step-number">B4</div>
+                    <div class="step-name">Structure Val.</div>
+                    <div class="step-desc">pLDDT-based structural confidence assessment</div>
+                </div>
+                <div class="step-card" data-step="B5">
+                    <div class="step-number">B5</div>
+                    <div class="step-name">Affinity</div>
+                    <div class="step-desc">PRODIGY / Rosetta / BSA consensus K<sub>D</sub></div>
+                </div>
+                <div class="step-card" data-step="B6">
+                    <div class="step-number">B6</div>
+                    <div class="step-name">Ranking</div>
+                    <div class="step-desc">Multi-criteria weighted composite scoring</div>
+                </div>
+                <div class="step-card" data-step="B7">
+                    <div class="step-number">B7</div>
+                    <div class="step-name">Codon Opt.</div>
+                    <div class="step-desc">Species-specific optimization + expression cassette</div>
+                </div>
+                <div class="step-card" data-step="B8">
+                    <div class="step-number">B8</div>
+                    <div class="step-name">Deliverables</div>
+                    <div class="step-desc">Synthesis order, summary report</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Tools -->
+        <section class="card">
+            <h2>Quick Tools</h2>
+            <div class="tools-grid">
+                <!-- Sequence QC -->
+                <div class="tool-panel">
+                    <h3>Sequence QC</h3>
+                    <textarea id="qcInput" placeholder="Enter protein sequence (single letter)..." rows="3"></textarea>
+                    <button class="btn btn-secondary" onclick="runQuickQC()">Check Sequence</button>
+                    <div id="qcResult" class="result-panel"></div>
+                </div>
+                <!-- Affinity Prediction -->
+                <div class="tool-panel">
+                    <h3>Affinity Prediction</h3>
+                    <textarea id="affinityInput" placeholder="Enter binder sequence..." rows="3"></textarea>
+                    <div class="form-row">
+                        <input type="number" id="bsaInput" placeholder="BSA (Å²)" value="1200">
+                        <input type="number" id="scInput" placeholder="SC" value="0.65" step="0.05">
+                    </div>
+                    <button class="btn btn-secondary" onclick="runAffinity()">Predict K<sub>D</sub></button>
+                    <div id="affinityResult" class="result-panel"></div>
+                </div>
+                <!-- Codon Optimization -->
+                <div class="tool-panel">
+                    <h3>Codon Optimization</h3>
+                    <textarea id="codonInput" placeholder="Enter protein sequence..." rows="3"></textarea>
+                    <div class="form-row">
+                        <select id="codonSpecies">
+                            <option value="mouse">Mouse</option>
+                            <option value="human">Human</option>
+                        </select>
+                        <select id="codonSystem">
+                            <option value="vaccinia">Vaccinia</option>
+                            <option value="aav">AAV</option>
+                            <option value="lentivirus">Lentivirus</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" onclick="runCodonOpt()">Optimize</button>
+                    <div id="codonResult" class="result-panel"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>ImmunoForge v0.1.0 — Local Server Deployment</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

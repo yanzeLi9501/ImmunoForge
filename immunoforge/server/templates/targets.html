@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Database — ImmunoForge</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"><span class="logo">⚒</span> ImmunoForge</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/targets" class="active">Target Database</a>
+            <a href="/results">Results</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <h1>Immune Cell Surface Protein Database</h1>
+
+        <section class="card">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Cell Type</label>
+                    <select id="filterCellType" onchange="filterTargets()">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Species</label>
+                    <select id="filterSpecies" onchange="filterTargets()">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="filterName" placeholder="Search..." oninput="filterTargets()">
+                </div>
+                <div class="form-group">
+                    <label>Min Benchmark</label>
+                    <select id="filterBenchmark" onchange="filterTargets()">
+                        <option value="0">All</option>
+                        <option value="2">★★+</option>
+                        <option value="3">★★★</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <table class="data-table" id="targetTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Gene</th>
+                        <th>Cell Type</th>
+                        <th>Species</th>
+                        <th>UniProt</th>
+                        <th>PDB</th>
+                        <th>Benchmark</th>
+                        <th>Known Binders</th>
+                    </tr>
+                </thead>
+                <tbody id="targetBody"></tbody>
+            </table>
+        </section>
+
+        <section class="card" id="targetDetail" style="display:none;">
+            <h2 id="detailName"></h2>
+            <div id="detailContent"></div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script>
+        // Load filter options
+        async function loadFilters() {
+            const [ctRes, spRes] = await Promise.all([
+                fetch('/api/targets/cell-types'),
+                fetch('/api/targets/species'),
+            ]);
+            const ctData = await ctRes.json();
+            const spData = await spRes.json();
+
+            const ctSelect = document.getElementById('filterCellType');
+            ctData.cell_types.forEach(ct => {
+                const opt = document.createElement('option');
+                opt.value = ct; opt.textContent = ct;
+                ctSelect.appendChild(opt);
+            });
+
+            const spSelect = document.getElementById('filterSpecies');
+            spData.species.forEach(sp => {
+                const opt = document.createElement('option');
+                opt.value = sp; opt.textContent = sp;
+                spSelect.appendChild(opt);
+            });
+
+            filterTargets();
+        }
+
+        async function filterTargets() {
+            const params = new URLSearchParams();
+            const ct = document.getElementById('filterCellType').value;
+            const sp = document.getElementById('filterSpecies').value;
+            const name = document.getElementById('filterName').value;
+            const bm = document.getElementById('filterBenchmark').value;
+
+            if (ct) params.set('cell_type', ct);
+            if (sp) params.set('species', sp);
+            if (name) params.set('name', name);
+            if (bm > 0) params.set('min_benchmark', bm);
+
+            const res = await fetch(`/api/targets?${params}`);
+            const data = await res.json();
+
+            const tbody = document.getElementById('targetBody');
+            tbody.innerHTML = '';
+            data.targets.forEach(t => {
+                const stars = '★'.repeat(t.benchmark_value) + '☆'.repeat(3 - t.benchmark_value);
+                const binders = (t.known_binders || []).map(b =>
+                    `${b.name} (${b.kd_nM} nM)`
+                ).join(', ') || '—';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><a href="#" onclick="showTarget('${t.name}')">${t.name}</a></td>
+                    <td>${t.gene}</td>
+                    <td><span class="badge badge-${t.cell_type.replace(/\s/g, '')}">${t.cell_type}</span></td>
+                    <td>${t.species}</td>
+                    <td><a href="https://www.uniprot.org/uniprot/${t.uniprot}" target="_blank">${t.uniprot}</a></td>
+                    <td>${(t.pdb_ids || []).join(', ') || '—'}</td>
+                    <td>${stars}</td>
+                    <td class="small">${binders}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function showTarget(name) {
+            const res = await fetch(`/api/targets/${encodeURIComponent(name)}`);
+            const t = await res.json();
+            document.getElementById('detailName').textContent = `${t.name} (${t.gene})`;
+            document.getElementById('detailContent').innerHTML = `
+                <p><strong>Cell Type:</strong> ${t.cell_type} | <strong>Species:</strong> ${t.species}</p>
+                <p><strong>Description:</strong> ${t.description || '—'}</p>
+                <p><strong>UniProt:</strong> <a href="https://www.uniprot.org/uniprot/${t.uniprot}" target="_blank">${t.uniprot}</a></p>
+                <p><strong>PDB:</strong> ${(t.pdb_ids || []).join(', ') || '—'}</p>
+                <p><strong>AlphaFold:</strong> ${t.alphafold_id || '—'}</p>
+                <p><strong>Residue Range:</strong> ${t.residue_range || '—'}</p>
+                <p><strong>Hotspot Residues:</strong> ${(t.hotspot_residues || []).join(', ') || '—'}</p>
+                <h3>Known Binders</h3>
+                <table class="data-table">
+                    <thead><tr><th>Name</th><th>K<sub>D</sub> (nM)</th><th>Type</th></tr></thead>
+                    <tbody>
+                        ${(t.known_binders || []).map(b =>
+                `<tr><td>${b.name}</td><td>${b.kd_nM}</td><td>${b.type || '—'}</td></tr>`
+            ).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('targetDetail').style.display = 'block';
+        }
+
+        loadFilters();
+    </script>
+</body>
+
+</html>

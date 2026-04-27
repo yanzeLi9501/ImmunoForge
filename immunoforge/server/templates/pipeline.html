@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImmunoForge — Full Pipeline Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --yellow: #d29922;
+            --blue: #388bfd;
+            --purple: #bc8cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .navbar {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-brand {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .nav-brand .logo {
+            margin-right: 8px;
+        }
+
+        .nav-links {
+            margin-left: 32px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--accent);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 1.3em;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+
+        h3 {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        input,
+        select,
+        textarea {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9em;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Courier New', monospace;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #79c0ff;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.85em;
+        }
+
+        /* Steps timeline */
+        .steps-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .step-item.active {
+            background: rgba(88, 166, 255, 0.08);
+        }
+
+        .step-item.completed {
+            background: rgba(63, 185, 80, 0.06);
+        }
+
+        .step-item.failed {
+            background: rgba(248, 81, 73, 0.06);
+        }
+
+        .step-indicator {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: 700;
+            flex-shrink: 0;
+            border: 2px solid var(--border);
+        }
+
+        .step-indicator.pending {
+            color: var(--text-muted);
+        }
+
+        .step-indicator.running {
+            border-color: var(--accent);
+            color: var(--accent);
+            animation: pulse 1.5s infinite;
+        }
+
+        .step-indicator.done {
+            border-color: var(--green);
+            color: var(--green);
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .step-indicator.error {
+            border-color: var(--red);
+            color: var(--red);
+            background: rgba(248, 81, 73, 0.1);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .step-detail {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .step-time {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* Viz container */
+        .viz-panel {
+            margin-top: 12px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        /* Summary badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .badge-green {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--green);
+        }
+
+        .badge-yellow {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--yellow);
+        }
+
+        .badge-red {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--red);
+        }
+
+        .badge-blue {
+            background: rgba(56, 139, 253, 0.15);
+            color: var(--blue);
+        }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .metric-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .metric-label {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Sequence display */
+        .seq-display {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            word-break: break-all;
+            line-height: 1.8;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 6px;
+        }
+
+        .seq-display .cdr {
+            background: rgba(88, 166, 255, 0.2);
+            padding: 2px 0;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .seq-display .cdr-label {
+            font-size: 0.7em;
+            color: var(--accent);
+            vertical-align: super;
+        }
+
+        /* QC checklist */
+        .qc-list {
+            list-style: none;
+        }
+
+        .qc-list li {
+            padding: 4px 0;
+            font-size: 0.9em;
+        }
+
+        .qc-list .pass::before {
+            content: "✓ ";
+            color: var(--green);
+            font-weight: 700;
+        }
+
+        .qc-list .fail::before {
+            content: "✗ ";
+            color: var(--red);
+            font-weight: 700;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            padding: 6px 16px;
+            border-radius: 6px 6px 0 0;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            cursor: pointer;
+            font-size: 0.85em;
+            color: var(--text-muted);
+        }
+
+        .tab.active {
+            background: var(--surface);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Example sequences */
+        .examples {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .example-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* JSON viewer */
+        .json-viewer {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-brand"><span class="logo">⚒</span> ImmunoForge</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/targets">Targets</a>
+            <a href="/pipeline" class="active">Full Pipeline</a>
+            <a href="/results">Results</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Full Pipeline Analysis</h1>
+        <p class="subtitle">Complete binder analysis: QC → Structure → Affinity → Immunogenicity → Developability →
+            Codon Optimization</p>
+
+        <!-- Input Form -->
+        <div class="card" id="inputCard">
+            <h2>Input</h2>
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Binder Sequence (amino acids)</label>
+                    <textarea id="binderSeq" placeholder="Paste amino acid sequence here..."></textarea>
+                    <div class="examples">
+                        <span style="font-size:0.8em;color:var(--text-muted)">Examples:</span>
+                        <button class="example-btn" onclick="loadExample('nivolumab')">Nivolumab VH</button>
+                        <button class="example-btn" onclick="loadExample('okt3')">OKT3</button>
+                        <button class="example-btn" onclick="loadExample('fmc63')">FMC63 scFv</button>
+                        <button class="example-btn" onclick="loadExample('mica')">MICA ectodomain</button>
+                        <button class="example-btn" onclick="loadExample('sirpa')">SIRPα D1</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Target Name</label>
+                    <input id="targetName" type="text" placeholder="e.g., PD-1, CD3E, NKG2D">
+                </div>
+                <div class="form-group">
+                    <label>Species</label>
+                    <select id="species">
+                        <option value="human">Human</option>
+                        <option value="mouse">Mouse</option>
+                        <option value="cynomolgus">Cynomolgus</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Expression System</label>
+                    <select id="exprSystem">
+                        <option value="all">All Systems</option>
+                        <option value="aav">AAV</option>
+                        <option value="mrna">mRNA</option>
+                        <option value="ecoli">E. coli</option>
+                        <option value="pichia">Pichia pastoris</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Structure Prediction</label>
+                    <select id="runEsmfold">
+                        <option value="true">ESMFold (GPU required)</option>
+                        <option value="false">Heuristic (fast, no GPU)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" id="runBtn" onclick="runPipeline()">
+                        ▶ Run Full Pipeline
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="card" id="progressCard" style="display:none">
+            <div class="card-header">
+                <h2>Pipeline Progress</h2>
+                <span id="progressStatus" class="badge badge-blue"></span>
+            </div>
+            <div class="steps-timeline" id="stepsTimeline"></div>
+        </div>
+
+        <!-- Summary -->
+        <div class="card" id="summaryCard" style="display:none">
+            <h2>Summary</h2>
+            <div class="metrics-grid" id="metricsGrid"></div>
+        </div>
+
+        <!-- Step Detail Panels -->
+        <div id="stepPanels"></div>
+
+        <!-- Benchmark -->
+        <div class="card" id="benchmarkCard" style="display:none">
+            <h2>Benchmark Calibration</h2>
+            <div id="benchmarkChart" style="height:400px"></div>
+            <div id="benchmarkMetrics" class="metrics-grid"></div>
+        </div>
+
+        <!-- Raw JSON -->
+        <div class="card" id="jsonCard" style="display:none">
+            <div class="card-header">
+                <h2>Raw JSON Response</h2>
+                <button class="btn btn-sm" onclick="copyJSON()">Copy</button>
+            </div>
+            <div class="json-viewer" id="jsonViewer"></div>
+        </div>
+    </div>
+
+    <script>
+        // Example sequences
+        const EXAMPLES = {
+            nivolumab: {
+                seq: "QVQLVESGGGVVQPGRSLRLSCAASGFTFSSYGMHWVRQAPGKGLEWVAVIWYDGSNKYYADSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARDPRGATLYYYYYGMDVWGQGTTVTVSS",
+                target: "PD-1"
+            },
+            okt3: {
+                seq: "QVQLQQSGAELARPGASVKMSCKASGYTFTRYTMHWVKQRPGQGLEWIGYINPSRGYTNYNQKFKDKATLTTDKSSSTAYMQLSSLTSEDSAVYYCARYYDDHYSLDYWGQGTTLTVSS",
+                target: "CD3E"
+            },
+            fmc63: {
+                seq: "DIQMTQTTSSLSASLGDRVTISCRASQDISKYLNWYQQKPDGTVKLLIYHTSRLHSGVPSRFSGSGSGTDYSLTISNLEQEDIATYFCQQGNTLPYTFGGGTKLEITGGGGSGGGGSGGGGSEVKLQESGPGLVAPSQSLSVTCTVSGVSLPDYGVSWIRQPPRKGLEWLGVIWGSETTYYNSALKSRLTIIKDNSKSQVFLKMNSLQTDDTAIYYCARSAKHDPFDYWGQGTLVTVSS",
+                target: "CD19"
+            },
+            mica: {
+                seq: "EPHSLRYNLTVLSWDGSVQSGFLTEVHLDGQPFLRCDRQKCRAKPQGQWAEDVLGNKTWDRETRDLTGNGKDLRMTLAHIKDQKEGLHSLQEIRVCEIHEDNSTRSSQHFYYDGELFLSQNLETKEWTMPQSSRAQTLAMNVRNFLKEDAMKTKTHYHAMHADCLQELRRYLKSGVVLRRTVPPMVNVTRSEASEGNITVTCRASSFIKIYHEKMHPENITYSENVITAAAIEVDSSSMMNYTQHASGSTYHKVLSTMSSSEKSSVHITLHRTSFQKPEELQPGPREEELTVPIPQHAAQPKERKHAELPVAGALELQLIVSWDAHSSILSFLTD",
+                target: "NKG2D"
+            },
+            sirpa: {
+                seq: "EEELQVIQPDKSVLVAAGETATLRCTATSLIPVGPIQWFRGAGPGRELIYNQKEGHFPRVTTVSDLTKRNNMDFSIRIGNITPADAGTYYCVKFRKGSPDTEFKSGA",
+                target: "CD47"
+            },
+        };
+
+        let pipelineResult = null;
+
+        function loadExample(name) {
+            const ex = EXAMPLES[name];
+            document.getElementById('binderSeq').value = ex.seq;
+            document.getElementById('targetName').value = ex.target;
+        }
+
+        async function runPipeline() {
+            const seq = document.getElementById('binderSeq').value.trim().toUpperCase().replace(/[^A-Z]/g, '');
+            const target = document.getElementById('targetName').value.trim();
+            if (!seq || seq.length < 10) return alert('Please enter a sequence (≥10 aa)');
+            if (!target) return alert('Please enter a target name');
+
+            const body = {
+                binder_sequence: seq,
+                target_name: target,
+                species: document.getElementById('species').value,
+                expression_system: document.getElementById('exprSystem').value,
+                run_esmfold: document.getElementById('runEsmfold').value === 'true',
+                run_maturation: false,
+            };
+
+            // Show progress
+            const btn = document.getElementById('runBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Running...';
+            document.getElementById('progressCard').style.display = '';
+            document.getElementById('summaryCard').style.display = 'none';
+            document.getElementById('stepPanels').innerHTML = '';
+            document.getElementById('jsonCard').style.display = 'none';
+
+            // Initialize step indicators
+            const stepNames = [
+                { id: 'S1_QC', name: 'Sequence QC' },
+                { id: 'S2_Domain', name: 'Domain Classification' },
+                { id: 'S3_Structure', name: 'Structure Prediction' },
+                { id: 'S4_Affinity', name: 'Binding Affinity' },
+                { id: 'S5_Immunogenicity', name: 'Immunogenicity' },
+                { id: 'S6_Developability', name: 'Developability' },
+                { id: 'S7_Codon', name: 'Codon Optimization' },
+            ];
+            const timeline = document.getElementById('stepsTimeline');
+            timeline.innerHTML = stepNames.map((s, i) =>
+                `<div class="step-item" id="step_${s.id}">
+                <div class="step-indicator running" id="ind_${s.id}">${i + 1}</div>
+                <div class="step-content">
+                    <div class="step-name">${s.name}</div>
+                    <div class="step-detail" id="det_${s.id}">Waiting...</div>
+                </div>
+                <div class="step-time" id="time_${s.id}"></div>
+            </div>`
+            ).join('');
+            document.getElementById('progressStatus').textContent = 'Running';
+            document.getElementById('progressStatus').className = 'badge badge-blue';
+
+            try {
+                const resp = await fetch('/api/pipeline/full', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || resp.statusText);
+                }
+                pipelineResult = await resp.json();
+                renderResults(pipelineResult);
+            } catch (e) {
+                document.getElementById('progressStatus').textContent = 'Error';
+                document.getElementById('progressStatus').className = 'badge badge-red';
+                alert('Pipeline error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '▶ Run Full Pipeline';
+            }
+        }
+
+        function renderResults(data) {
+            // Update step indicators
+            for (const step of data.steps) {
+                const ind = document.getElementById(`ind_${step.step}`);
+                const det = document.getElementById(`det_${step.step}`);
+                const tm = document.getElementById(`time_${step.step}`);
+                const item = document.getElementById(`step_${step.step}`);
+                if (!ind) continue;
+                if (step.status === 'completed') {
+                    ind.className = 'step-indicator done';
+                    ind.textContent = '✓';
+                    item.className = 'step-item completed';
+                    det.textContent = getStepSummary(step);
+                } else {
+                    ind.className = 'step-indicator error';
+                    ind.textContent = '✗';
+                    item.className = 'step-item failed';
+                    det.textContent = step.result?.error || 'Failed';
+                }
+                tm.textContent = step.time_s + 's';
+            }
+
+            const ps = document.getElementById('progressStatus');
+            if (data.status === 'completed') {
+                ps.textContent = 'Completed';
+                ps.className = 'badge badge-green';
+            } else {
+                ps.textContent = 'Partial';
+                ps.className = 'badge badge-yellow';
+            }
+
+            // Summary
+            renderSummary(data.summary, data.total_time_s);
+
+            // Per-step visualizations
+            renderStepPanels(data.steps);
+
+            // JSON
+            document.getElementById('jsonCard').style.display = '';
+            // Remove large PDB strings from display
+            const displayData = JSON.parse(JSON.stringify(data));
+            for (const s of displayData.steps) {
+                if (s.result?._pdb_string) s.result._pdb_string = '[PDB data omitted]';
+            }
+            document.getElementById('jsonViewer').textContent = JSON.stringify(displayData, null, 2);
+        }
+
+        function getStepSummary(step) {
+            const r = step.result || {};
+            switch (step.step) {
+                case 'S1_QC': return r.overall_pass ? 'All checks passed' : 'QC issues detected';
+                case 'S2_Domain': return `${r.domain_type || 'unknown'} — ${r.n_cdrs || 0} CDRs`;
+                case 'S3_Structure': return `pLDDT ${r.mean_plddt || '?'} (${r.quality || '?'}) via ${r.method || '?'}`;
+                case 'S4_Affinity': {
+                    const c = r.consensus || {};
+                    return `K_D = ${c.consensus_kd_nM || '?'} nM (${c.confidence || '?'})`;
+                }
+                case 'S5_Immunogenicity': return `${r.risk_level || '?'} risk (score ${r.immunogenicity_score || '?'})`;
+                case 'S6_Developability': return `${r.developability_class || '?'} (Tm ${r.predicted_tm_C || '?'}°C)`;
+                case 'S7_Codon': {
+                    const sys = Object.keys(r.systems || {});
+                    const ok = Object.values(r.systems || {}).filter(v => v.passes_constraints).length;
+                    return `${ok}/${sys.length} systems pass`;
+                }
+                default: return '';
+            }
+        }
+
+        function renderSummary(summary, totalTime) {
+            document.getElementById('summaryCard').style.display = '';
+            const grid = document.getElementById('metricsGrid');
+            const items = [
+                { label: 'Predicted K_D', value: summary.predicted_kd_nM ? summary.predicted_kd_nM.toFixed(1) + ' nM' : '—', sub: summary.affinity_confidence || '' },
+                { label: 'Structure Quality', value: summary.plddt ? summary.plddt.toFixed(0) : '—', sub: summary.structure_quality || '' },
+                { label: 'Domain Type', value: summary.domain_type || '—', sub: summary.n_cdrs ? summary.n_cdrs + ' CDRs' : '' },
+                { label: 'Immunogenicity', value: summary.immunogenicity_risk || '—', sub: '' },
+                { label: 'Developability', value: summary.developability_class || '—', sub: summary.predicted_tm ? 'Tm ' + summary.predicted_tm + '°C' : '' },
+                { label: 'Total Time', value: totalTime.toFixed(1) + 's', sub: summary.structure_method || '' },
+            ];
+            grid.innerHTML = items.map(m =>
+                `<div class="metric-card">
+                <div class="metric-value">${m.value}</div>
+                <div class="metric-label">${m.label}</div>
+                ${m.sub ? '<div style="font-size:0.75em;color:var(--text-muted)">' + m.sub + '</div>' : ''}
+            </div>`
+            ).join('');
+        }
+
+        function renderStepPanels(steps) {
+            const container = document.getElementById('stepPanels');
+            container.innerHTML = '';
+
+            for (const step of steps) {
+                if (step.status !== 'completed' || !step.visualization) continue;
+                const viz = step.visualization;
+                const panel = document.createElement('div');
+                panel.className = 'card';
+                panel.innerHTML = `<h2>${step.name}</h2><div id="viz_${step.step}"></div>`;
+                container.appendChild(panel);
+
+                const target = panel.querySelector(`#viz_${step.step}`);
+                renderVisualization(target, viz, step);
+            }
+        }
+
+        function renderVisualization(container, viz, step) {
+            switch (viz.type) {
+                case 'qc_summary': renderQC(container, viz); break;
+                case 'sequence_annotation': renderSeqAnnotation(container, viz); break;
+                case 'plddt_line': renderPlddtChart(container, viz, step.step); break;
+                case 'affinity_comparison': renderAffinityChart(container, viz, step.step); break;
+                case 'epitope_map': renderEpitopeMap(container, viz); break;
+                case 'radar': renderRadar(container, viz, step.step); break;
+                case 'gc_comparison': renderGCChart(container, viz, step.step); break;
+                case 'maturation_trajectory': renderMaturation(container, viz, step.step); break;
+                default: container.innerHTML = '<pre>' + JSON.stringify(viz, null, 2) + '</pre>';
+            }
+        }
+
+        function renderQC(el, viz) {
+            el.innerHTML = `<ul class="qc-list">` +
+                viz.rules.map(r => `<li class="${r.passed ? 'pass' : 'fail'}">${r.name}: ${r.detail}</li>`).join('') +
+                `</ul>`;
+        }
+
+        function renderSeqAnnotation(el, viz) {
+            let html = viz.sequence;
+            // Sort annotations by start position descending so we can insert without offset issues
+            const anns = [...viz.annotations].sort((a, b) => b.start - a.start);
+            for (const a of anns) {
+                const before = html.slice(0, a.start);
+                const region = html.slice(a.start, a.end);
+                const after = html.slice(a.end);
+                html = before + `<span class="cdr">${region}<span class="cdr-label">${a.label}</span></span>` + after;
+            }
+            el.innerHTML = `<div class="seq-display">${html}</div>
+                        <div style="margin-top:8px;font-size:0.85em;color:var(--text-muted)">
+                        Domain: <span class="badge badge-blue">${viz.domain_type}</span>
+                        &nbsp; CDRs highlighted in blue</div>`;
+        }
+
+        function renderPlddtChart(el, viz, stepId) {
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart_' + stepId;
+            el.appendChild(chartDiv);
+
+            const x = viz.data.map(d => d.residue);
+            const y = viz.data.map(d => d.plddt);
+
+            // Color by confidence
+            const colors = y.map(v => v >= 90 ? '#0053D6' : v >= 70 ? '#65CBF3' : v >= 50 ? '#FFDB13' : '#FF7D45');
+
+            Plotly.newPlot(chartDiv.id, [{
+                x, y, type: 'scatter', mode: 'lines+markers',
+                marker: { size: 3, color: colors },
+                line: { width: 1.5, color: '#58a6ff' },
+                hovertemplate: 'Residue %{x}<br>pLDDT: %{y:.1f}<extra></extra>',
+            }], {
+                title: viz.title,
+                xaxis: { title: viz.x_label, gridcolor: '#30363d' },
+                yaxis: { title: viz.y_label, range: [0, 100], gridcolor: '#30363d' },
+                shapes: viz.thresholds.map(t => ({
+                    type: 'line', x0: 0, x1: x.length, y0: t.value, y1: t.value,
+                    line: { color: t.color, width: 1, dash: 'dot' },
+                })),
+                paper_bgcolor: '#0d1117', plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' },
+                margin: { t: 40, r: 20, b: 50, l: 50 },
+                height: 300,
+            }, { responsive: true });
+        }
+
+        function renderAffinityChart(el, viz, stepId) {
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart_' + stepId;
+            el.appendChild(chartDiv);
+
+            const methods = viz.methods.filter(m => m.kd_nM < 5e8);
+            const names = methods.map(m => m.name);
+            const values = methods.map(m => m.log10_kd);
+            const colors = methods.map(m => m.color);
+
+            const traces = [{
+                x: names, y: values, type: 'bar',
+                marker: { color: colors },
+                text: methods.map(m => m.kd_nM.toFixed(1) + ' nM'),
+                textposition: 'outside',
+                hovertemplate: '%{x}<br>K_D: %{text}<br>log₁₀: %{y:.2f}<extra></extra>',
+            }];
+
+            // Add consensus line
+            if (viz.consensus_kd_nM) {
+                const logC = Math.log10(viz.consensus_kd_nM);
+                traces.push({
+                    x: [names[0], names[names.length - 1]], y: [logC, logC],
+                    type: 'scatter', mode: 'lines',
+                    line: { color: '#d29922', width: 2, dash: 'dash' },
+                    name: 'Consensus: ' + viz.consensus_kd_nM.toFixed(1) + ' nM',
+                });
+            }
+
+            Plotly.newPlot(chartDiv.id, traces, {
+                title: viz.title + (viz.structure_derived ? ' (structure-derived)' : ' (sequence-based)'),
+                yaxis: { title: 'log₁₀ K_D (nM)', gridcolor: '#30363d' },
+                paper_bgcolor: '#0d1117', plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' }, showlegend: true,
+                legend: { x: 0.7, y: 1.1 },
+                margin: { t: 50, r: 20, b: 50, l: 50 },
+                height: 320,
+            }, { responsive: true });
+
+            // Add structure info text
+            if (viz.structure_derived) {
+                el.innerHTML += '<div style="margin-top:8px;font-size:0.85em;color:var(--green)">✓ Using structure-derived BSA & contacts from ESMFold PDB</div>';
+            }
+        }
+
+        function renderEpitopeMap(el, viz) {
+            el.innerHTML = `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div class="metric-card" style="min-width:120px">
+                <div class="metric-value">${viz.score}</div>
+                <div class="metric-label">Score</div>
+            </div>
+            <div class="metric-card" style="min-width:120px">
+                <div class="metric-value">${viz.risk_level}</div>
+                <div class="metric-label">Risk Level</div>
+            </div>
+            <div class="metric-card" style="min-width:120px">
+                <div class="metric-value">${viz.hotspots.length}</div>
+                <div class="metric-label">Hotspot Regions</div>
+            </div>
+        </div>
+        ${viz.hotspots.length > 0 ? '<div style="margin-top:8px;font-size:0.85em;color:var(--text-muted)">Hotspot positions: ' + viz.hotspots.map(h => h.start + '-' + h.end).join(', ') + '</div>' : ''}`;
+        }
+
+        function renderRadar(el, viz, stepId) {
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart_' + stepId;
+            el.appendChild(chartDiv);
+
+            const labels = viz.axes.map(a => a.label);
+            const values = viz.axes.map(a => a.value);
+            values.push(values[0]); // Close the polygon
+            labels.push(labels[0]);
+
+            Plotly.newPlot(chartDiv.id, [{
+                type: 'scatterpolar',
+                r: values,
+                theta: labels,
+                fill: 'toself',
+                fillcolor: 'rgba(88,166,255,0.15)',
+                line: { color: '#58a6ff' },
+                marker: { size: 6, color: '#58a6ff' },
+            }], {
+                polar: {
+                    radialaxis: { range: [0, 1], gridcolor: '#30363d', tickfont: { color: '#8b949e' } },
+                    angularaxis: { gridcolor: '#30363d', tickfont: { color: '#c9d1d9' } },
+                    bgcolor: '#0d1117',
+                },
+                paper_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' },
+                title: viz.title + ' (' + viz.class + ')',
+                margin: { t: 50, r: 60, b: 30, l: 60 },
+                height: 350,
+            }, { responsive: true });
+        }
+
+        function renderGCChart(el, viz, stepId) {
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart_' + stepId;
+            el.appendChild(chartDiv);
+
+            const names = viz.bars.map(b => b.system);
+            const gcs = viz.bars.map(b => b.gc * 100);
+            const colors = viz.bars.map(b => b.ok ? '#3fb950' : '#f85149');
+
+            Plotly.newPlot(chartDiv.id, [{
+                x: names, y: gcs, type: 'bar',
+                marker: { color: colors },
+                text: viz.bars.map(b => b.bp + ' bp'),
+                hovertemplate: '%{x}<br>GC: %{y:.1f}%<br>%{text}<extra></extra>',
+            }], {
+                title: viz.title,
+                yaxis: { title: 'GC Content (%)', range: [0, 80], gridcolor: '#30363d' },
+                shapes: [
+                    {
+                        type: 'rect', x0: -0.5, x1: names.length - 0.5,
+                        y0: viz.optimal_range[0] * 100, y1: viz.optimal_range[1] * 100,
+                        fillcolor: 'rgba(63,185,80,0.08)', line: { width: 0 }
+                    },
+                ],
+                paper_bgcolor: '#0d1117', plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' },
+                margin: { t: 40, r: 20, b: 50, l: 50 },
+                height: 300,
+            }, { responsive: true });
+        }
+
+        function renderMaturation(el, viz, stepId) {
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart_' + stepId;
+            el.appendChild(chartDiv);
+
+            const x = viz.trajectory.map(t => t.generation);
+            const y = viz.trajectory.map(t => t.kd_nM);
+
+            Plotly.newPlot(chartDiv.id, [{
+                x, y, type: 'scatter', mode: 'lines+markers',
+                line: { color: '#58a6ff', width: 2 },
+                marker: { size: 8, color: '#58a6ff' },
+                name: 'Best K_D',
+            }], {
+                title: viz.title + ' (' + viz.improvement + '× improvement)',
+                xaxis: { title: 'Generation', dtick: 1, gridcolor: '#30363d' },
+                yaxis: { title: 'K_D (nM)', type: 'log', gridcolor: '#30363d' },
+                shapes: [{
+                    type: 'line', x0: 0, x1: x[x.length - 1], y0: viz.target_kd, y1: viz.target_kd,
+                    line: { color: '#3fb950', width: 2, dash: 'dash' },
+                }],
+                paper_bgcolor: '#0d1117', plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' },
+                margin: { t: 50, r: 20, b: 50, l: 60 },
+                height: 300,
+            }, { responsive: true });
+        }
+
+        function copyJSON() {
+            navigator.clipboard.writeText(document.getElementById('jsonViewer').textContent);
+        }
+
+        // Load benchmark on page load
+        async function loadBenchmark() {
+            try {
+                const resp = await fetch('/api/visualize/benchmark');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                document.getElementById('benchmarkCard').style.display = '';
+                renderBenchmarkChart(data);
+            } catch (e) { console.warn('Benchmark load failed:', e); }
+        }
+
+        function renderBenchmarkChart(data) {
+            const points = data.data;
+            const ab = points.filter(p => p.binder_type === 'antibody');
+            const nat = points.filter(p => p.binder_type !== 'antibody');
+
+            const traces = [];
+            if (ab.length) {
+                traces.push({
+                    x: ab.map(p => p.log10_exp), y: ab.map(p => p.log10_pred),
+                    text: ab.map(p => p.binder + ' → ' + p.target),
+                    type: 'scatter', mode: 'markers+text',
+                    textposition: 'top right', textfont: { size: 9, color: '#8b949e' },
+                    marker: { size: 10, color: '#3498db', symbol: 'circle' },
+                    name: 'Antibody',
+                    hovertemplate: '<b>%{text}</b><br>Exp: 10^%{x:.1f} nM<br>Pred: 10^%{y:.1f} nM<extra></extra>',
+                });
+            }
+            if (nat.length) {
+                traces.push({
+                    x: nat.map(p => p.log10_exp), y: nat.map(p => p.log10_pred),
+                    text: nat.map(p => p.binder + ' → ' + p.target),
+                    type: 'scatter', mode: 'markers+text',
+                    textposition: 'top right', textfont: { size: 9, color: '#8b949e' },
+                    marker: { size: 10, color: '#2ecc71', symbol: 'diamond' },
+                    name: 'Natural Ligand',
+                    hovertemplate: '<b>%{text}</b><br>Exp: 10^%{x:.1f} nM<br>Pred: 10^%{y:.1f} nM<extra></extra>',
+                });
+            }
+
+            // y=x line
+            const minV = Math.min(...points.map(p => Math.min(p.log10_exp, p.log10_pred))) - 0.5;
+            const maxV = Math.max(...points.map(p => Math.max(p.log10_exp, p.log10_pred))) + 0.5;
+            traces.push({
+                x: [minV, maxV], y: [minV, maxV],
+                type: 'scatter', mode: 'lines',
+                line: { color: '#8b949e', dash: 'dash', width: 1 },
+                showlegend: false,
+            });
+
+            Plotly.newPlot('benchmarkChart', traces, {
+                title: data.title,
+                xaxis: { title: 'log₁₀ Experimental K_D (nM)', gridcolor: '#30363d' },
+                yaxis: { title: 'log₁₀ Predicted K_D (nM)', gridcolor: '#30363d' },
+                paper_bgcolor: '#0d1117', plot_bgcolor: '#0d1117',
+                font: { color: '#c9d1d9' },
+                legend: { x: 0.02, y: 0.98 },
+                margin: { t: 50, r: 20 },
+            }, { responsive: true });
+
+            // Metrics
+            const m = data.metrics;
+            document.getElementById('benchmarkMetrics').innerHTML = [
+                { l: 'Spearman ρ', v: (m.spearman_rho || 0).toFixed(3) },
+                { l: 'MALE', v: (m.mean_absolute_log10_error || 0).toFixed(3) },
+                { l: 'Within 1 log', v: ((m.fraction_within_1_log || 0) * 100).toFixed(0) + '%' },
+                { l: 'Entries', v: m.n_evaluated || 0 },
+            ].map(m => `<div class="metric-card"><div class="metric-value">${m.v}</div><div class="metric-label">${m.l}</div></div>`).join('');
+        }
+
+        loadBenchmark();
+    </script>
+</body>
+
+</html>
