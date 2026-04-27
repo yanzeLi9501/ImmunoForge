@@ -407,15 +407,19 @@ def run_loo_cv(
     if entries is None:
         entries = get_benchmark_entries(with_sequence=True)
 
+    _BT_TO_CAL = {"de_novo": "denovo", "engineered": "denovo"}
+
     loo_predictions = []
     for i, held_out in enumerate(entries):
         if held_out.binder_sequence is None:
             continue
         bsa = held_out.bsa_experimental or (len(held_out.binder_sequence) * 14)
         sc = held_out.sc_experimental or 0.65
+        type_override = _BT_TO_CAL.get(held_out.binder_type)
         result = run_affinity_analysis(
             held_out.binder_sequence, bsa, sc,
             seed=seed + _stable_seed_offset(held_out.binder_name),
+            binder_type_override=type_override,
         )
         consensus = result.get("consensus", {})
         pred_kd = consensus.get("consensus_kd_nM")

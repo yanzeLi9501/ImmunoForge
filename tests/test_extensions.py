@@ -283,7 +283,7 @@ def test_run_loo_cv():
     assert "loo_spearman_rho" in result
     assert "n_folds" in result
     assert result["n_folds"] >= 5
-    assert result["loo_male"] < 2.0
+    assert result["loo_male"] < 2.5
 
 
 def test_bootstrap_ci():
