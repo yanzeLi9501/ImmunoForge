@@ -3,6 +3,8 @@
 ImmunoForge is a command-line workflow for de novo protein binder design against immune-cell surface targets. The implemented user-facing interface is the CLI in `immunoforge/cli.py`, with batch execution controlled by `config/default_config.yaml` and file outputs written under `paths.output_dir`.
 
 This README documents the CLI and the YAML-driven file workflow exactly as implemented in code. It does not describe the web UI workflow.
+<img width="1379" height="864" alt="image" src="https://github.com/user-attachments/assets/b0ae4bc4-ee24-462e-a53b-4db52e7ead5e" />
+
 
 ## Features
 
