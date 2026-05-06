@@ -31,12 +31,6 @@ def main():
         help="Override output directory",
     )
 
-    # ── server ──
-    srv_p = sub.add_parser("server", help="Start the local web server")
-    srv_p.add_argument("--host", default="0.0.0.0", help="Bind host (default 0.0.0.0)")
-    srv_p.add_argument("--port", type=int, default=8000, help="Bind port (default 8000)")
-    srv_p.add_argument("--reload", action="store_true", help="Auto-reload on changes")
-
     # ── qc ──
     qc_p = sub.add_parser("qc", help="Run sequence QC on a FASTA file")
     qc_p.add_argument("fasta", help="Input FASTA file")
@@ -62,8 +56,6 @@ def main():
 
     if args.command == "run":
         _cmd_run(args)
-    elif args.command == "server":
-        _cmd_server(args)
     elif args.command == "qc":
         _cmd_qc(args)
     elif args.command == "targets":
@@ -86,25 +78,37 @@ def _cmd_run(args):
     config = load_config(config_path)
 
     if args.species:
-        config["species"] = args.species
+        species_cfg = config.get("species")
+        if isinstance(species_cfg, dict):
+            species_cfg["default"] = args.species
+        else:
+            config["species"] = {"default": args.species}
     if args.output:
-        config.setdefault("output", {})["base_dir"] = args.output
+        paths_cfg = config.setdefault("paths", {})
+        paths_cfg["output_dir"] = args.output
+        paths_cfg.setdefault("logs_dir", str(Path(args.output) / "logs"))
 
     steps = args.steps
-    print(f"[ImmunoForge] Running pipeline — species={config.get('species', 'mouse')}")
+    species_cfg = config.get("species", {})
+    species = species_cfg.get("default", "mouse") if isinstance(species_cfg, dict) else species_cfg
+    output_dir = config.get("paths", {}).get("output_dir", "outputs")
+
+    print(f"[ImmunoForge] Running pipeline — species={species}")
     summary = run_pipeline(config, steps=steps)
 
     print("\n=== Pipeline Summary ===")
-    for step_key, info in summary.items():
+    print(
+        f"Completed: {summary.get('completed', 0)}  "
+        f"Failed: {summary.get('failed', 0)}  "
+        f"Output: {output_dir}"
+    )
+    for info in summary.get("step_results", []):
         status = info.get("status", "unknown")
-        marker = "✓" if status == "done" else "✗"
-        print(f"  {marker} {step_key}: {status}")
-
-
-def _cmd_server(args):
-    from immunoforge.server.app import run_server
-    print(f"[ImmunoForge] Starting server at http://{args.host}:{args.port}")
-    run_server(host=args.host, port=args.port, reload=args.reload)
+        marker = "✓" if status == "completed" else "✗"
+        line = f"  {marker} {info.get('step', '?')}: {status}"
+        if info.get("error"):
+            line += f" ({info['error']})"
+        print(line)
 
 
 def _cmd_qc(args):
