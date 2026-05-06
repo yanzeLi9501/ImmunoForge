@@ -49,6 +49,11 @@ def main(config: dict) -> dict:
             "mpnn_score": s.get("mpnn_score", 1.0),
             "bsa": s.get("bsa", 1000),
             "sc": s.get("sc", 0.6),
+            # Boltz-2 structural scores (from B5 consensus output)
+            "complex_iptm": consensus.get("boltz2_iptm"),
+            "interface_ptm": s.get("interface_ptm"),
+            "interface_pae": s.get("interface_pae"),
+            "kd_confidence": consensus.get("kd_confidence"),
         })
 
     ranking_cfg = config.get("ranking", {})

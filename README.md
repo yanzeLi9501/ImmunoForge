@@ -413,15 +413,20 @@ The tables below list every field shipped in `config/default_config.yaml`. The l
 
 ### `ranking`
 
+Optimised weights (Supplementary Method 10 v6). With Boltz-2 structural data the three structural components (complex_iptm + interface_ptm + interface_pae) total 40% of the budget; without structural data this 40% is redistributed 55% → K_D and 45% → MPNN score.
+
 | Key | Default | Current code use |
 | --- | --- | --- |
-| `weights.plddt` | `0.20` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.ddg` | `0.20` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.kd` | `0.15` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.mpnn_score` | `0.15` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.bsa` | `0.10` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.shape_complementarity` | `0.10` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
-| `weights.baseline` | `0.10` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.plddt` | `0.08` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.ddg` | `0.08` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.kd` | `0.12` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.mpnn_score` | `0.12` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.bsa` | `0.05` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.shape_complementarity` | `0.08` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.baseline` | `0.07` | Read by `B6_candidate_ranking.py` and forwarded to `rank_candidates`. |
+| `weights.complex_iptm` | `0.20` | Boltz-2 complex ipTM score; active when Boltz-2 structural data available. |
+| `weights.interface_ptm` | `0.12` | Boltz-2 interface pTM; active when Boltz-2 structural data available. |
+| `weights.interface_pae` | `0.08` | Boltz-2 interface PAE; normalised as 1−PAE/30; active when structural data available. |
 | `penalties.high_aggregation` | `-0.10` | Present in the config; penalties are hardcoded inside `core.ranking.compute_composite_score`. |
 | `penalties.extreme_pi` | `-0.05` | Present in the config; not read directly by `core.ranking.compute_composite_score`. |
 | `top_n` | `20` | Read by `B6_candidate_ranking.py`. |

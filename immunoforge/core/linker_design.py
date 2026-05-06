@@ -89,28 +89,85 @@ class BispecificConstruct:
 def estimate_optimal_linker_length(
     binder1_len: int,
     binder2_len: int,
-    target_distance_angstrom: float = 50.0,
+    synapse_target_nm: float = 14.0,
+    binder_domain_span_nm: float = 9.0,
 ) -> int:
-    """Estimate optimal linker length in residues.
+    """Estimate optimal linker length using the WLC contour-length model.
 
-    Assumes ~3.8 Å per residue for extended conformation.
-    For flexible linkers, effective end-to-end distance is shorter
-    due to conformational averaging.
+    Computes the linker contour length required so that:
+
+        binder_domain_span_nm + n_aa × 0.38 nm ≈ synapse_target_nm
+
+    The T-cell immunological synapse intermembrane distance is 13–15 nm.
+    Both binder domains together contribute ≈ 8–10 nm; the linker must
+    supply the remaining headroom.  The default *synapse_target_nm* = 14 nm
+    is the midpoint of the 13–15 nm physiological range.
 
     Args:
-        binder1_len: Length of first binder domain.
-        binder2_len: Length of second binder domain.
-        target_distance_angstrom: Desired distance between binding sites.
+        binder1_len: Length of first binder domain (amino acids; currently unused,
+            reserved for domain-specific span estimation in future).
+        binder2_len: Length of second binder domain (amino acids; currently unused).
+        synapse_target_nm: Target combined span (binders + linker) in nm.
+            Default 14.0 nm = midpoint of 13–15 nm synapse gap.
+        binder_domain_span_nm: Estimated end-to-end span of both binder domains
+            along the cell–cell axis (default 9.0 nm).
 
     Returns:
-        Recommended linker length in amino acids.
+        Recommended linker length in amino acids (clamped to [5, 50]).
     """
-    # Extended: ~3.8 Å/residue; effective for flexible linkers: ~2.5 Å/residue
-    effective_per_residue = 2.5
-    min_length = max(5, int(target_distance_angstrom / 3.8))
-    recommended = max(min_length, int(target_distance_angstrom / effective_per_residue))
-    # Cap at reasonable maximum
-    return min(recommended, 50)
+    linker_needed_nm = max(0.0, synapse_target_nm - binder_domain_span_nm)
+    # WLC extended contour: L_c = n × 0.38 nm  →  n = L_c / 0.38
+    n_aa = int(linker_needed_nm / 0.38) + 1  # +1 for ceiling behaviour
+    return max(5, min(n_aa, 50))
+
+
+# ── Synapse-aware geometry filter ──
+# T-cell immunological synapse intermembrane distance: 13–15 nm (130–150 Å).
+# Binder domains (VH ~110 aa, VHH ~125 aa) contribute ≈ 3.8 Å × (110–125) ÷
+# 3 chain-axis compression ≈ 80–100 Å.  Linker must supply ≥ 50 Å headroom.
+SYNAPSE_MIN_NM = 13.0    # nm — lower bound
+SYNAPSE_MAX_NM = 15.0    # nm — upper bound
+_AA_PER_NM = 1.0 / 0.38  # residues per nm (extended contour; 0.38 nm/residue)
+
+
+def synapse_geometry_check(
+    binder1_seq: str,
+    binder2_seq: str,
+    linker_seq: str,
+    binder_domain_span_nm: float = 9.0,
+) -> dict:
+    """Evaluate whether the bispecific construct satisfies the synapse gap constraint.
+
+    Uses the WLC contour-length model:  L_c = n_aa × 0.38 nm.
+
+    The combined span = binder-domain contribution + linker contour length.
+    The binder-domain contribution is approximated from the average
+    residue count of the two domains using a chain-axis compression factor.
+
+    Args:
+        binder1_seq: First binder amino acid sequence.
+        binder2_seq: Second binder amino acid sequence.
+        linker_seq:  Linker amino acid sequence.
+        binder_domain_span_nm: Estimated combined end-to-end span of both
+            binder domains along the cell–cell axis (default 9.0 nm for
+            two typical VH/VHH domains, ~8–10 nm range).
+
+    Returns:
+        dict with keys: linker_lc_nm, total_span_nm, synapse_compatible,
+        synapse_min_nm, synapse_max_nm.
+    """
+    linker_lc_nm = len(linker_seq) * 0.38
+    total_span_nm = binder_domain_span_nm + linker_lc_nm
+    compatible = SYNAPSE_MIN_NM <= total_span_nm <= SYNAPSE_MAX_NM
+
+    return {
+        "linker_lc_nm": round(linker_lc_nm, 2),
+        "binder_domain_span_nm": round(binder_domain_span_nm, 2),
+        "total_span_nm": round(total_span_nm, 2),
+        "synapse_min_nm": SYNAPSE_MIN_NM,
+        "synapse_max_nm": SYNAPSE_MAX_NM,
+        "synapse_compatible": compatible,
+    }
 
 
 def design_linker(
@@ -226,6 +283,43 @@ def design_bispecific(
         estimated_mw_da=round(mw, 1),
         orientations=orientations,
     )
+
+
+def synapse_filter(
+    constructs: list[BispecificConstruct],
+    binder_domain_span_nm: float = 9.0,
+) -> tuple[list[BispecificConstruct], list[dict]]:
+    """Apply the T-cell synapse geometry filter to a list of bispecific constructs.
+
+    Retains only constructs whose combined binder-domain span plus linker
+    contour length falls within the 13–15 nm intermembrane synapse gap.
+    This constitutes a sequence-level geometric compatibility check; functional
+    synapse engagement is not measured.
+
+    Args:
+        constructs: List of BispecificConstruct objects to filter.
+        binder_domain_span_nm: Estimated span of both binder domains (default 9.0 nm).
+
+    Returns:
+        (passing, rejected_reports) where *passing* is the filtered list and
+        *rejected_reports* is a list of dicts with id and geometry details.
+    """
+    passing = []
+    rejected = []
+    for c in constructs:
+        geo = synapse_geometry_check(
+            c.binder1_seq, c.binder2_seq, c.linker.sequence,
+            binder_domain_span_nm=binder_domain_span_nm,
+        )
+        if geo["synapse_compatible"]:
+            passing.append(c)
+        else:
+            rejected.append({
+                "binder1": c.binder1_id,
+                "binder2": c.binder2_id,
+                "geometry": geo,
+            })
+    return passing, rejected
 
 
 def design_all_linker_variants(

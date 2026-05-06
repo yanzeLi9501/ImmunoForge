@@ -211,11 +211,33 @@ def build_expression_cassette(
     elif system == "aav":
         promoter = "CMV_PROMOTER_PLACEHOLDER"
         kozak = "GCCACCATG"
-        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA"
+        poly_a = "AATAAAAGATCTTTTATTTTCATTAGATCTGTGTGTTGGTTTTTTGTGTG"  # SV40 polyA
+        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA{poly_a}"
     elif system == "lentivirus":
         promoter = "EF1A_PROMOTER_PLACEHOLDER"
         kozak = "GCCACCATG"
-        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA"
+        poly_a = "AATAAAAGATCTTTTATTTTCATTAGATCTGTGTGTTGGTTTTTTGTGTG"  # SV40 polyA
+        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA{poly_a}"
+    elif system == "mrna":
+        # mRNA/LNP delivery: 5' cap + UTR + Kozak + CDS + 3' UTR + poly-A tail.
+        # No viral promoter required (in vitro transcription).
+        # CpG depletion is handled upstream during codon optimisation.
+        utr5 = "GGGAAATAAGAGAGAAAAGAAGAGTAAGAAGAAATATAAGAGCC"  # synthetic 5' UTR
+        kozak = "GCCACCATG"
+        utr3 = "UGAAUUCGCCACCACAACCUCAGCUUUUUAAAAAAAAAAAAAAAAAA"  # synthetic 3' UTR
+        cassette = f"{utr5}{kozak}{sp_dna}{cds_dna}TAA{utr3}"
+    elif system == "cho":
+        # CHO transient/stable expression: CMV/EF1a promoter, Kozak, BGH polyA
+        promoter = "EF1A_PROMOTER_PLACEHOLDER"
+        kozak = "GCCACCATG"
+        poly_a = "CTGTGCCTTCTAGTTGCCAGCCATCTGTTGTTTGCCCCTCCCCCGTGCCTTCCTTGACCCTGGAAGGTGCCACTCCCACTGTCCTTTCCTAATAAAATGAGGAAATTGCATCGCATTGTCTGAGTAGGTGTCATTCTATTCTGGGGGGTGGGGTGGGGCAGGACAGCAAGGGGGAGGATTGGGAAGAGAATAGCAGGCATGCTGGG"  # BGH polyA
+        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA{poly_a}"
+    elif system == "hek293t":
+        # HEK 293T transient expression: CMV promoter, Kozak, BGH polyA
+        promoter = "CMV_PROMOTER_PLACEHOLDER"
+        kozak = "GCCACCATG"
+        poly_a = "CTGTGCCTTCTAGTTGCCAGCCATCTGTTGTTTGCCCCTCCCCCGTGCCTTCCTTGACCCTGGAAGGTGCCACTCCCACTGTCCTTTCCTAATAAAATGAGGAAATTGCATCGCATTGTCTGAGTAGGTGTCATTCTATTCTGGGGGGTGGGGTGGGGCAGGACAGCAAGGGGGAGGATTGGGAAGAGAATAGCAGGCATGCTGGG"  # BGH polyA
+        cassette = f"{promoter}{kozak}{sp_dna}{cds_dna}TAA{poly_a}"
     else:
         cassette = f"GCCACCATG{sp_dna}{cds_dna}TAA"
 

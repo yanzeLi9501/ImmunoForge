@@ -321,6 +321,48 @@ TARGET_DB: list[TargetEntry] = [
         description="Prostate-specific membrane antigen; prostate cancer",
         benchmark_value=2,
     ),
+
+    # ──────────── Extended immune / de-novo design targets (entries 22-27) ────────────
+    TargetEntry(
+        name="TrkA", gene="NTRK1", cell_type="de_novo_target", species="human",
+        uniprot="P04629", alphafold_id="AF-P04629-F1",
+        known_binders=[
+            {"name": "RFdiffusion_HA20", "kd_nM": 15.0, "type": "de_novo"},
+        ],
+        description="Tropomyosin receptor kinase A; de novo binder design validation target",
+        benchmark_value=3,
+    ),
+    TargetEntry(
+        name="IL-7Ra", gene="IL7R", cell_type="de_novo_target", species="human",
+        uniprot="P16871", alphafold_id="AF-P16871-F1",
+        known_binders=[
+            {"name": "RFdiffusion_LCB1", "kd_nM": 50.0, "type": "de_novo"},
+        ],
+        description="IL-7 receptor alpha; de novo binder design validation target",
+        benchmark_value=2,
+    ),
+    TargetEntry(
+        name="PD-L1", gene="CD274", cell_type="T cell / APC", species="human",
+        uniprot="Q9NZQ7", pdb_ids=["5XXY"],
+        alphafold_id="AF-Q9NZQ7-F1",
+        known_binders=[
+            {"name": "RFdiffusion_LCB3", "kd_nM": 2.0, "type": "de_novo"},
+            {"name": "Atezolizumab", "kd_nM": 9.96, "type": "antibody"},
+        ],
+        description="PD-L1 checkpoint ligand; de novo + clinical antibody binder",
+        benchmark_value=3,
+    ),
+    TargetEntry(
+        name="TIGIT", gene="TIGIT", cell_type="T cell / NK", species="human",
+        uniprot="Q495A1", pdb_ids=["8JEO", "8VTD"],
+        alphafold_id="AF-Q495A1-F1",
+        known_binders=[
+            {"name": "Tiragolumab", "kd_nM": None, "type": "antibody"},
+            {"name": "Vibostolimab", "kd_nM": None, "type": "antibody"},
+        ],
+        description="T cell immunoreceptor with Ig and ITIM domains; checkpoint target",
+        benchmark_value=1,
+    ),
 ]
 
 

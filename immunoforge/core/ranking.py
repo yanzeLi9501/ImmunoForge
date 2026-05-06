@@ -4,8 +4,11 @@ Candidate Ranking — Multi-criteria weighted scoring system.
 Based on: pLDDT, ΔΔG, K_D, MPNN score, BSA, shape complementarity,
 with penalties for aggregation risk and extreme pI.
 
-v5: Adaptive weight redistribution when structural scores (ESMFold
-pLDDT + interface PAE) are available, and K_D confidence weighting.
+v6 (optimised): Weights calibrated against 18-entry benchmark per
+Supplementary Method 10.  Three separate Boltz-2 structural
+components (complex_iptm 20%, interface_ptm 12%, interface_pae 8%).
+When Boltz-2 data are absent the 40% structural budget is redistributed
+55% → K_D and 45% → MPNN score.
 """
 
 import logging
@@ -19,27 +22,32 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RankingWeights:
-    """Adaptive ranking weight configuration.
+    """Adaptive ranking weight configuration (Supplementary Method 10 v6).
 
-    When ESMFold structural scores are available, ``structural_score``
-    and ``iptm_proxy`` carry positive weights. Otherwise their budget
-    is automatically redistributed to ``kd`` and ``mpnn_score``.
+    With Boltz-2 structural data: complex_iptm + interface_ptm +
+    interface_pae sum to 40% of the total weight budget.  Without
+    structural data this 40% is redistributed 55% → kd, 45% → mpnn.
+    Weights sum to 1.0 before penalties.
     """
-    # Structure-derived (populated when ESMFold is available)
-    structural_score: float = 0.25
-    iptm_proxy: float = 0.15
+    # Boltz-2 structural (populate when available)
+    complex_iptm: float = 0.20
+    interface_ptm: float = 0.12
+    interface_pae: float = 0.08
 
     # Sequence / design quality
-    mpnn_score: float = 0.15
-    plddt: float = 0.10
-    ddg: float = 0.10
+    plddt: float = 0.08
+    ddg: float = 0.08
+    mpnn_score: float = 0.12
 
     # Affinity prediction
-    kd: float = 0.15
-    kd_confidence: float = 0.05
+    kd: float = 0.12
 
     # Physicochemical
     bsa: float = 0.05
+    shape_complementarity: float = 0.08
+
+    # Baseline offset
+    baseline: float = 0.07
 
     # Penalties
     high_aggregation_penalty: float = -0.10
@@ -71,54 +79,58 @@ def compute_composite_score(
     sc: float,
     physico: dict,
     weights: dict | None = None,
-    structural_score: float | None = None,
-    iptm_proxy: float | None = None,
+    complex_iptm: float | None = None,
+    interface_ptm: float | None = None,
+    interface_pae: float | None = None,
     kd_confidence: str | None = None,
 ) -> float:
     """Adaptive weighted composite score (higher = better).
 
-    When *structural_score* (from ESMFold) is provided, the
-    ``structural_score`` and ``iptm_proxy`` weight slots are active.
-    Otherwise their budget is redistributed to ``kd`` and ``mpnn_score``
-    so that the total weight always sums to ~1.0.
+    Implements Supplementary Method 10 v6 optimised weights.
+    When Boltz-2 structural data are provided (*complex_iptm*,
+    *interface_ptm*, *interface_pae*), the 40% structural budget is
+    active.  Without structural data this budget is redistributed:
+    55% to K_D and 45% to MPNN score.
 
-    Similarly, *kd_confidence* ("high"/"moderate"/"low") modulates the
-    affinity weight: low-confidence K_D predictions get down-weighted
-    and the freed budget goes to structural / MPNN components.
+    *interface_pae* is normalised as ``1 - pae/30`` so that lower PAE
+    contributes a higher score (clamped to [0, 1]).
 
-    Default weights from Methods §1.8 (v5 adaptive scheme).
+    *kd_confidence* ("high"/"moderate"/"low") triggers 40% K_D weight
+    reallocation to structural or MPNN scores when confidence is low.
     """
     if weights is None:
         weights = {
-            "plddt": 0.10,
-            "ddg": 0.10,
-            "kd": 0.15,
-            "mpnn_score": 0.15,
+            "plddt": 0.08,
+            "ddg": 0.08,
+            "kd": 0.12,
+            "mpnn_score": 0.12,
             "bsa": 0.05,
-            "shape_complementarity": 0.10,
-            "baseline": 0.10,
-            "structural_score": 0.15,
-            "iptm_proxy": 0.10,
+            "shape_complementarity": 0.08,
+            "baseline": 0.07,
+            "complex_iptm": 0.20,
+            "interface_ptm": 0.12,
+            "interface_pae": 0.08,
         }
 
     w = dict(weights)  # mutable copy
 
     # ── Dynamic weight redistribution ──
-    has_structure = structural_score is not None
+    has_structure = complex_iptm is not None
+    _STRUCTURAL_KEYS = ("complex_iptm", "interface_ptm", "interface_pae")
     if not has_structure:
-        # Shift structural budget → affinity + MPNN
-        spare = w.pop("structural_score", 0) + w.pop("iptm_proxy", 0)
-        w["kd"] = w.get("kd", 0.15) + spare * 0.6
-        w["mpnn_score"] = w.get("mpnn_score", 0.15) + spare * 0.4
+        # Shift 40% structural budget → 55% kd, 45% mpnn
+        spare = sum(w.pop(k, 0) for k in _STRUCTURAL_KEYS)
+        w["kd"] = w.get("kd", 0.12) + spare * 0.55
+        w["mpnn_score"] = w.get("mpnn_score", 0.12) + spare * 0.45
 
-    # K_D confidence modulation
+    # K_D confidence modulation (spread > 3.0 log units)
     if kd_confidence == "low":
-        kd_penalty = w.get("kd", 0.15) * 0.4
-        w["kd"] = w.get("kd", 0.15) - kd_penalty
+        kd_penalty = w.get("kd", 0.12) * 0.4
+        w["kd"] = w.get("kd", 0.12) - kd_penalty
         if has_structure:
-            w["structural_score"] = w.get("structural_score", 0.15) + kd_penalty
+            w["complex_iptm"] = w.get("complex_iptm", 0.20) + kd_penalty
         else:
-            w["mpnn_score"] = w.get("mpnn_score", 0.15) + kd_penalty
+            w["mpnn_score"] = w.get("mpnn_score", 0.12) + kd_penalty
 
     # ── Normalize components to [0, 1] ──
     s_plddt = min(plddt / 90.0, 1.0)
@@ -129,19 +141,25 @@ def compute_composite_score(
     s_sc = min(sc / 0.7, 1.0)
 
     score = (
-        w.get("plddt", 0.10) * s_plddt
-        + w.get("ddg", 0.10) * s_ddg
-        + w.get("kd", 0.15) * s_kd
-        + w.get("mpnn_score", 0.15) * s_mpnn
+        w.get("plddt", 0.08) * s_plddt
+        + w.get("ddg", 0.08) * s_ddg
+        + w.get("kd", 0.12) * s_kd
+        + w.get("mpnn_score", 0.12) * s_mpnn
         + w.get("bsa", 0.05) * s_bsa
-        + w.get("shape_complementarity", 0.10) * s_sc
-        + w.get("baseline", 0.10) * 1.0
+        + w.get("shape_complementarity", 0.08) * s_sc
+        + w.get("baseline", 0.07) * 1.0
     )
 
-    # Structural components (when available)
+    # Structural components (when Boltz-2 data available)
     if has_structure:
-        score += w.get("structural_score", 0.15) * min(structural_score, 1.0)
-        score += w.get("iptm_proxy", 0.10) * min(iptm_proxy or 0.5, 1.0)
+        s_iptm = min(float(complex_iptm), 1.0)
+        s_ptm = min(float(interface_ptm) if interface_ptm is not None else s_iptm * 0.9, 1.0)
+        # PAE: lower PAE → higher score; normalise to 30 Å ceiling
+        raw_pae = float(interface_pae) if interface_pae is not None else 10.0
+        s_pae = max(0.0, 1.0 - raw_pae / 30.0)
+        score += w.get("complex_iptm", 0.20) * s_iptm
+        score += w.get("interface_ptm", 0.12) * s_ptm
+        score += w.get("interface_pae", 0.08) * s_pae
 
     # Penalties
     if physico.get("aggregation_risk") == "high":
@@ -176,6 +194,10 @@ def rank_candidates(
             sc=c.get("sc", 0.6),
             physico=physico,
             weights=weights,
+            complex_iptm=c.get("complex_iptm"),
+            interface_ptm=c.get("interface_ptm"),
+            interface_pae=c.get("interface_pae"),
+            kd_confidence=c.get("kd_confidence"),
         )
         scored.append({
             **c,

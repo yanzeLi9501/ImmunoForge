@@ -65,9 +65,13 @@ def main(config: dict) -> dict:
         bsa = estimate_bsa(seq, seed=hash(sid) % (2**31))
         sc = estimate_sc(seq, seed=hash(sid) % (2**31))
 
+        # Pull Boltz-2 ipTM from B4c AF2-multimer filter results if available
+        iptm = entry.get("iptm") or entry.get("protein_iptm")
+
         affinity = run_affinity_analysis(
             seq, bsa, sc, seed=hash(sid) % (2**31),
             binder_type_override=type_override,
+            iptm=iptm,
         )
 
         scored.append({
@@ -79,9 +83,11 @@ def main(config: dict) -> dict:
             "affinity": affinity,
         })
 
+    n_with_af3 = sum(1 for s in scored if s["affinity"]["consensus"].get("boltz2_iptm") is not None)
     result = {
         "n_analyzed": len(scored),
-        "methods": ["PRODIGY-ICS", "Rosetta_REF2015", "BSA_regression"],
+        "n_with_boltz2": n_with_af3,
+        "methods": ["PRODIGY-ICS", "Rosetta_REF2015", "BSA_regression", "Boltz2_AF3"],
         "scored": scored,
     }
 
