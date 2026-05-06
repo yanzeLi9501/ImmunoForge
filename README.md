@@ -4,7 +4,7 @@
 
 ImmunoForge is an automated pipeline for de novo protein binder design targeting
 immune cell surface molecules, with built-in support for bispecific bridging
-molecule design, codon optimization, and local web-based deployment.
+molecule design, codon optimization, and command-line execution.
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/f0a3828e-efb7-43d2-9721-896b19f98ca9" />
 
 ## Features
@@ -55,6 +55,10 @@ pip install -e ".[gpu]"
 The console script exposed by the package is:
 
 - `immunoforge` — main CLI
+
+To inspect the available commands at any time, use `immunoforge --help`
+(standard), `immunoforge -h`, or the short alias `immunoforge --h`. The same
+help flags also work on subcommands such as `immunoforge run --h`.
 
 ## CLI Reference
 

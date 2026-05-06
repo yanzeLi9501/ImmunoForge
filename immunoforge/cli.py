@@ -5,15 +5,27 @@ import sys
 from pathlib import Path
 
 
+def _add_help_flag(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "-h", "--help", "--h",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="show this help message and exit",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="immunoforge",
         description="ImmunoForge: AI-driven immunological protein design platform",
+        add_help=False,
     )
+    _add_help_flag(parser)
     sub = parser.add_subparsers(dest="command")
 
     # ── run ──
-    run_p = sub.add_parser("run", help="Run the design pipeline")
+    run_p = sub.add_parser("run", help="Run the design pipeline", add_help=False)
+    _add_help_flag(run_p)
     run_p.add_argument(
         "-c", "--config", default=None,
         help="Path to YAML config (default: config/default_config.yaml)",
@@ -32,18 +44,21 @@ def main():
     )
 
     # ── qc ──
-    qc_p = sub.add_parser("qc", help="Run sequence QC on a FASTA file")
+    qc_p = sub.add_parser("qc", help="Run sequence QC on a FASTA file", add_help=False)
+    _add_help_flag(qc_p)
     qc_p.add_argument("fasta", help="Input FASTA file")
     qc_p.add_argument("-o", "--output", default=None, help="Output JSON path")
 
     # ── targets ──
-    tgt_p = sub.add_parser("targets", help="Browse the target database")
+    tgt_p = sub.add_parser("targets", help="Browse the target database", add_help=False)
+    _add_help_flag(tgt_p)
     tgt_p.add_argument("--cell-type", default=None, help="Filter by cell type")
     tgt_p.add_argument("--species", default=None, help="Filter by species")
     tgt_p.add_argument("--benchmark", action="store_true", help="Show benchmark targets only")
 
     # ── codon ──
-    cod_p = sub.add_parser("codon", help="Optimize codons for a protein sequence")
+    cod_p = sub.add_parser("codon", help="Optimize codons for a protein sequence", add_help=False)
+    _add_help_flag(cod_p)
     cod_p.add_argument("sequence", help="Amino acid sequence (or @file.fasta)")
     cod_p.add_argument("--species", default="mouse", help="Target species")
     cod_p.add_argument("--system", default="vaccinia", help="Expression system")
