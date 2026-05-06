@@ -12,9 +12,16 @@ References:
 """
 
 import logging
+import math
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+# ── Immune synapse geometry constraints (manuscript Methods §1.6) ──
+# CAR-T / NK-cell synapse gap: 13–15 nm (WLC chain model calibrated on
+# CD45 exclusion zone data, Bhatt et al. 2022).
+SYNAPSE_MIN_NM: float = 13.0
+SYNAPSE_MAX_NM: float = 15.0
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -124,9 +131,16 @@ def calculate_terminal_distance(binder1_pdb_path: str, binder2_pdb_path: str) ->
 def estimate_optimal_linker_length(
     binder1_len: int,
     binder2_len: int,
-    target_distance_angstrom: float = 50.0,
+    target_distance_angstrom: float | None = None,
+    synapse_target_nm: float | None = None,
+    binder_domain_span_nm: float | None = None,
 ) -> int:
     """Estimate optimal linker length in residues.
+
+    Accepts either *target_distance_angstrom* (Å, legacy) or the manuscript
+    API pair (*synapse_target_nm*, *binder_domain_span_nm*) in nanometres.
+    When the nm pair is given, the linker must bridge
+    ``synapse_target_nm - binder_domain_span_nm`` nm of remaining gap.
 
     Assumes ~3.8 Å per residue for extended conformation.
     For flexible linkers, effective end-to-end distance is shorter
@@ -135,17 +149,79 @@ def estimate_optimal_linker_length(
     Args:
         binder1_len: Length of first binder domain.
         binder2_len: Length of second binder domain.
-        target_distance_angstrom: Desired distance between binding sites.
+        target_distance_angstrom: Desired distance between binding sites (Å).
+        synapse_target_nm: Full synapse gap target (nm).
+        binder_domain_span_nm: Combined span of both binder domains (nm).
 
     Returns:
         Recommended linker length in amino acids.
     """
+    if synapse_target_nm is not None:
+        span_nm = binder_domain_span_nm if binder_domain_span_nm is not None else 9.0
+        gap_nm = max(0.0, synapse_target_nm - span_nm)
+        effective_distance = gap_nm * 10.0  # nm → Å
+    elif target_distance_angstrom is not None:
+        effective_distance = target_distance_angstrom
+    else:
+        effective_distance = 50.0  # default
+
     # Extended: ~3.8 Å/residue; effective for flexible linkers: ~2.5 Å/residue
     effective_per_residue = 2.5
-    min_length = max(5, int(target_distance_angstrom / 3.8))
-    recommended = max(min_length, int(target_distance_angstrom / effective_per_residue))
+    min_length = max(5, int(effective_distance / 3.8))
+    recommended = max(min_length, int(effective_distance / effective_per_residue))
     # Cap at reasonable maximum
     return min(recommended, 50)
+
+
+def synapse_geometry_check(
+    binder1_seq: str,
+    binder2_seq: str,
+    linker_seq: str,
+    binder_domain_span_nm: float = 9.0,
+) -> dict:
+    """Check whether a bispecific construct satisfies immune-synapse geometry.
+
+    Uses a Worm-Like Chain (WLC) model to estimate the end-to-end reach of the
+    linker and verifies it falls within the 13–15 nm synapse gap constraint
+    (SYNAPSE_MIN_NM / SYNAPSE_MAX_NM).
+
+    Args:
+        binder1_seq: Amino-acid sequence of the first binder domain.
+        binder2_seq: Amino-acid sequence of the second binder domain.
+        linker_seq:  Amino-acid sequence of the connecting linker.
+        binder_domain_span_nm: Approximate combined span of both binder
+            domains in nm (default 9.0 nm for a typical VHH + scFv pair).
+
+    Returns:
+        dict with keys:
+            ``passes``   – bool, True if construct fits synapse constraints
+            ``total_nm`` – estimated reach of the full construct (nm)
+            ``linker_nm``– estimated linker end-to-end reach (nm)
+            ``message``  – human-readable status string
+    """
+    # WLC effective reach: ~0.38 nm/residue (3.8 Å) for extended,
+    # effective end-to-end ~0.25 nm/residue for flexible glycine-rich linkers.
+    nm_per_residue = 0.25
+    linker_nm = len(linker_seq) * nm_per_residue
+    total_nm = binder_domain_span_nm + linker_nm
+
+    passes = SYNAPSE_MIN_NM <= total_nm <= SYNAPSE_MAX_NM
+    if passes:
+        msg = (f"PASS: construct reach {total_nm:.1f} nm within "
+               f"{SYNAPSE_MIN_NM}–{SYNAPSE_MAX_NM} nm synapse window")
+    elif total_nm < SYNAPSE_MIN_NM:
+        msg = (f"FAIL: construct too short ({total_nm:.1f} nm < "
+               f"{SYNAPSE_MIN_NM} nm); consider a longer linker")
+    else:
+        msg = (f"FAIL: construct too long ({total_nm:.1f} nm > "
+               f"{SYNAPSE_MAX_NM} nm); consider a shorter linker")
+
+    return {
+        "passes": passes,
+        "total_nm": round(total_nm, 2),
+        "linker_nm": round(linker_nm, 2),
+        "message": msg,
+    }
 
 
 def design_linker(

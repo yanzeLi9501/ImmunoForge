@@ -19,23 +19,25 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RankingWeights:
-    """Adaptive ranking weight configuration.
+    """Adaptive ranking weight configuration (v6).
 
-    When ESMFold structural scores are available, ``structural_score``
-    and ``iptm_proxy`` carry positive weights. Otherwise their budget
-    is automatically redistributed to ``kd`` and ``mpnn_score``.
+    When Boltz-2 structural scores are available, ``complex_iptm``,
+    ``interface_ptm``, and ``interface_pae`` carry positive weights.
+    Otherwise their budget is automatically redistributed to ``kd``
+    and ``mpnn_score`` (55 / 45 split).
     """
-    # Structure-derived (populated when ESMFold is available)
-    structural_score: float = 0.25
-    iptm_proxy: float = 0.15
+    # Structure-derived (populated when Boltz-2 / AF3 is available)
+    complex_iptm:   float = 0.20  # binary-complex ipTM (overall fold quality)
+    interface_ptm:  float = 0.12  # interface pTM (binding-site quality)
+    interface_pae:  float = 0.08  # interface PAE (inverse; lower = better)
 
     # Sequence / design quality
-    mpnn_score: float = 0.15
-    plddt: float = 0.10
-    ddg: float = 0.10
+    mpnn_score: float = 0.12
+    plddt:      float = 0.10
+    ddg:        float = 0.10
 
     # Affinity prediction
-    kd: float = 0.15
+    kd:            float = 0.12
     kd_confidence: float = 0.05
 
     # Physicochemical
@@ -43,8 +45,8 @@ class RankingWeights:
 
     # Penalties
     high_aggregation_penalty: float = -0.10
-    extreme_pI_penalty: float = -0.05
-    immunogenicity_penalty: float = -0.10
+    extreme_pI_penalty:       float = -0.05
+    immunogenicity_penalty:   float = -0.10
 
 
 def compute_physicochemical(sequence: str) -> dict:
@@ -99,8 +101,8 @@ def compute_composite_score(
             "bsa": 0.05,
             "shape_complementarity": 0.08,
             "baseline": 0.07,
-            "structural_score": 0.20,
-            "iptm_proxy": 0.12,
+            "structural_score": 0.20,   # complex_iptm in v6 RankingWeights
+            "iptm_proxy": 0.12,         # interface_ptm in v6 RankingWeights
             "interface_pae": 0.08,
         }
 
