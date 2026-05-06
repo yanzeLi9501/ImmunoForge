@@ -5,6 +5,7 @@
 ImmunoForge is an automated pipeline for de novo protein binder design targeting
 immune cell surface molecules, with built-in support for bispecific bridging
 molecule design, codon optimization, and local web-based deployment.
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/f0a3828e-efb7-43d2-9721-896b19f98ca9" />
 
 ## Features
 
