@@ -86,6 +86,47 @@ not used for primary results; steps marked **[internal use only]** are helper su
 > (`gpu-server`, RTX 4090 D) and are not invoked by default in `immunoforge run`.
 > Set `config.steps` in `default_config.yaml` to enable specific steps.
 
+## Key Parameters (Reproducibility Reference)
+
+### DACS Calibration (2-class, N=18)
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `delta_ppi` | −1.5659 | Log-shift for PPI/ab class (optimized on N=15 train set) |
+| `delta_denovo` | −3.4742 | Log-shift for de novo class |
+| `N_train` | 15 | Training entries |
+| `N_holdout` | 3 | Held-out entries |
+| `model_hash` | `9d7291409dd9` | SHA-12 of calibration parameters JSON |
+
+Train MALE = 0.89; LOO MALE = 1.02; LOO ρ = 0.39; Holdout MALE = 1.07
+
+### Boltz-2 ipTM → K_D Conversion
+
+```python
+# Fixed-anchor formula (A, B not fitted):
+log10(K_D / nM) = A - B * iptm   # A=5.0, B=6.0
+# Anchors: iptm=0.5 → 100 nM;  iptm=0.7 → 6.31 nM;  iptm=0.9 → 0.50 nM
+# Ceiling: 1e6 nM (1 mM)
+```
+
+### Candidate Ranking Weights (v6)
+
+| Feature | Weight |
+|---------|--------|
+| complex_iptm | 0.20 |
+| interface_ptm | 0.12 |
+| interface_pae | 0.08 |
+| kd | 0.12 |
+| mpnn_score | 0.12 |
+| bsa | 0.10 |
+| prodigy_kd | 0.10 |
+| rosetta_ddg | 0.08 |
+| qc_pass | 0.08 |
+
+### Bispecific Geometry Filter
+
+Synapse distance window: **13–15 nm** (WLC model, κT = 4.11 pN·nm at 25 °C)
+
 ## Requirements
 
 - Python 3.10+
