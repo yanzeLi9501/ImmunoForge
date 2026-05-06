@@ -574,18 +574,19 @@ _DENOVO_CALIBRATION = -4.4
 
 # ── Boltz-2 structural K_D conversion (4-method DACS, publication mode) ──
 # Maps binary-complex ipTM → K_D (nM) via log-linear model:
-#   log10(K_D) = -A * (iptm - 0.5) + B
+#   log10(K_D) = A - B * iptm
 # Calibrated on N=18 curated PPI/de-novo benchmark (manuscript §1.3).
-# Anchor points: iptm=0.5 → K_D=100 µM (ceiling hit); iptm=0.7 → 6.31 nM;
-#                iptm=0.9 → K_D < floor → clamped to 0.5 nM.
-_BOLTZ2_A = 21.0  # slope: log10-decades per unit ipTM
-_BOLTZ2_B = 5.0   # intercept: log10(K_D / nM) at iptm=0.5
+# A and B are FIXED (not fitted); delta_ppi/denovo are the fitted offsets.
+# Anchor points: iptm=0.5 → 100 nM; iptm=0.7 → 6.31 nM;
+#                iptm=0.9 → 0.40 nM → clamped to 0.5 nM floor.
+_BOLTZ2_A = 5.0   # intercept: log10(K_D / nM) at iptm=0
+_BOLTZ2_B = 6.0   # slope: log10-decades per unit ipTM
 _BOLTZ2_FLOOR_NM = 0.5   # physical lower bound (~sub-nM ultra-tight binders)
-_BOLTZ2_CEIL_NM  = 1e5   # ceiling (saturated / no-binding signal)
+_BOLTZ2_CEIL_NM  = 1e6   # ceiling (saturated / no-binding signal, 1 mM)
 
 # 4-method (AF3-inclusive) calibration offsets for ppi/denovo 2-class scheme
 # Recalibrated on N=18, 2-class split (Supp. Methods Table S3 panel e).
-_PPI_CALIBRATION_AF3    = -1.7176
+_PPI_CALIBRATION_AF3    = -1.5659
 _DENOVO_CALIBRATION_AF3 = -3.4742
 
 # 4-method DACS weights (Methods §1.3, v6)
@@ -609,11 +610,11 @@ def boltz2_iptm_to_kd(iptm: float) -> float:
     """Convert Boltz-2 binary-complex ipTM score → K_D (nM).
 
     Uses a log-linear mapping calibrated on the N=18 ImmunoForge benchmark:
-        log10(K_D) = -A * (iptm - 0.5) + B
-    with A=21.0, B=5.0 (floor 0.5 nM, ceiling 100 000 nM).
+        log10(K_D) = A - B * iptm
+    with A=5.0, B=6.0 (floor 0.5 nM, ceiling 1 000 000 nM).
 
     Anchor points:
-      - iptm=0.5 → 100 000 nM (ceiling, non-binder)
+      - iptm=0.5 →   100 nM (moderate non-binder)
       - iptm=0.7 →   6.31 nM (moderate binder)
       - iptm=0.9 →   0.50 nM (floor, ultra-tight binder)
 
@@ -623,7 +624,7 @@ def boltz2_iptm_to_kd(iptm: float) -> float:
     Returns:
         Predicted K_D in nM, clamped to [FLOOR, CEIL].
     """
-    log_kd = -_BOLTZ2_A * (iptm - 0.5) + _BOLTZ2_B
+    log_kd = _BOLTZ2_A - _BOLTZ2_B * iptm
     kd = 10.0 ** log_kd
     return float(max(_BOLTZ2_FLOOR_NM, min(_BOLTZ2_CEIL_NM, kd)))
 
