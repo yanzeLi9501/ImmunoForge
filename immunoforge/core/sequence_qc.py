@@ -171,6 +171,7 @@ def batch_qc(sequences: list[tuple[str, str]], config: dict | None = None) -> di
     for seq_id, seq in sequences:
         result = run_full_qc(seq, config)
         result["id"] = seq_id
+        result["sequence"] = seq
         if result["pass"]:
             passed.append(result)
         else:

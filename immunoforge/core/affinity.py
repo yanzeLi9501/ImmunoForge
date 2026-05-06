@@ -546,11 +546,13 @@ _ADAPTIVE_ANTIBODY_WEIGHTS = {
     "BSA_regression": 4.0,
     "PRODIGY-binding": 1.5,
     "Rosetta_REF2015": 0.9,
+    "AF3_structural": 1.5,
 }
 _ADAPTIVE_NATURAL_WEIGHTS = {
     "BSA_regression": 3.0,
     "PRODIGY-binding": 1.0,
     "Rosetta_REF2015": 0.5,
+    "AF3_structural": 1.5,
 }
 # De novo miniprotein binders: helical bundle interfaces are better
 # captured by contact-based methods (PRODIGY) than by BSA regression.
@@ -559,6 +561,7 @@ _ADAPTIVE_DENOVO_WEIGHTS = {
     "BSA_regression": 1.0,
     "PRODIGY-binding": 2.0,
     "Rosetta_REF2015": 1.5,
+    "AF3_structural": 1.5,
 }
 # Log10 calibration offsets correcting systematic bias per binder class.
 # Antibody offset (−1.5) accounts for CDR structural complementarity
@@ -569,13 +572,72 @@ _ANTIBODY_CALIBRATION = -1.5
 _NATURAL_CALIBRATION = 0.0
 _DENOVO_CALIBRATION = -4.4
 
+# ── Boltz-2 structural K_D conversion (4-method DACS, publication mode) ──
+# Maps binary-complex ipTM → K_D (nM) via log-linear model:
+#   log10(K_D) = A - B * iptm
+# Calibrated on N=18 curated PPI/de-novo benchmark (manuscript §1.3).
+# A and B are FIXED (not fitted); delta_ppi/denovo are the fitted offsets.
+# Anchor points: iptm=0.5 → 100 nM; iptm=0.7 → 6.31 nM;
+#                iptm=0.9 → 0.40 nM → clamped to 0.5 nM floor.
+_BOLTZ2_A = 5.0   # intercept: log10(K_D / nM) at iptm=0
+_BOLTZ2_B = 6.0   # slope: log10-decades per unit ipTM
+_BOLTZ2_FLOOR_NM = 0.5   # physical lower bound (~sub-nM ultra-tight binders)
+_BOLTZ2_CEIL_NM  = 1e6   # ceiling (saturated / no-binding signal, 1 mM)
+
+# 4-method (AF3-inclusive) calibration offsets for ppi/denovo 2-class scheme
+# Recalibrated on N=18, 2-class split (Supp. Methods Table S3 panel e).
+_PPI_CALIBRATION_AF3    = -1.5659
+_DENOVO_CALIBRATION_AF3 = -3.4742
+
+# 4-method DACS weights (Methods §1.3, v6)
+_PPI_WEIGHTS_AF3 = {
+    "BSA_regression": 3.0,
+    "PRODIGY-binding": 1.5,
+    "Rosetta_REF2015": 0.9,
+    "Boltz2_AF3":      2.0,
+}
+_DENOVO_WEIGHTS_AF3 = {
+    "BSA_regression": 1.0,
+    "PRODIGY-binding": 2.0,
+    "Rosetta_REF2015": 1.5,
+    "Boltz2_AF3":      2.5,
+}
+
 _REAL_METHODS = frozenset({"BSA_regression", "PRODIGY-binding", "Rosetta_REF2015"})
 
 
+def boltz2_iptm_to_kd(iptm: float) -> float:
+    """Convert Boltz-2 binary-complex ipTM score → K_D (nM).
+
+    Uses a log-linear mapping calibrated on the N=18 ImmunoForge benchmark:
+        log10(K_D) = A - B * iptm
+    with A=5.0, B=6.0 (floor 0.5 nM, ceiling 1 000 000 nM).
+
+    Anchor points:
+      - iptm=0.5 →   100 nM (moderate non-binder)
+      - iptm=0.7 →   6.31 nM (moderate binder)
+      - iptm=0.9 →   0.50 nM (floor, ultra-tight binder)
+
+    Args:
+        iptm: Boltz-2 interface predicted TM-score (0–1).
+
+    Returns:
+        Predicted K_D in nM, clamped to [FLOOR, CEIL].
+    """
+    log_kd = _BOLTZ2_A - _BOLTZ2_B * iptm
+    kd = 10.0 ** log_kd
+    return float(max(_BOLTZ2_FLOOR_NM, min(_BOLTZ2_CEIL_NM, kd)))
+
+
 def consensus_kd(
-    results: list[AffinityResult],
+    results: list[AffinityResult] | None = None,
     binder_type: str = "natural_protein",
     adaptive: bool = True,
+    iptm: float | None = None,
+    *,
+    bsa_kd: float | None = None,
+    prodigy_kd: float | None = None,
+    rosetta_ddg: float | None = None,
 ) -> dict:
     """Adaptive weighted consensus K_D from multiple methods.
 
@@ -584,26 +646,51 @@ def consensus_kd(
     applies a calibration offset that corrects for known systematic
     biases of sequence-only models.
 
-    Adaptive improvements over v4 fixed weights (8-entry benchmark):
-        Spearman ρ   0.857 → 0.905
-        MALE         1.274 → 0.441
-        1-log acc.   37.5% → 100%
-        1.5-log acc. 62.5% → 100%
+    When *iptm* (Boltz-2 binary-complex ipTM score) is provided, activates
+    the full 4-method DACS formula (3 sequence + 1 structural scorer) with
+    two-class ppi/de-novo calibration.  This is the primary publication mode
+    described in Methods §1.3.
 
-    When *adaptive=False*, reverts to v4 fixed weights (BSA 3, PRODIGY 1,
+    Without *iptm*, reverts to the 3-method adaptive consensus (v5) which
+    uses the 3-class antibody/natural-protein/de-novo calibration.
+
+    When *adaptive=False*, uses v4 fixed weights (BSA 3, PRODIGY 1,
     Rosetta 0.5) with no calibration offset.
+
+    Can also be called with keyword-only args (legacy QA API):
+        consensus_kd(bsa_kd=100, prodigy_kd=200, rosetta_ddg=-1.5, iptm=0.72, ...)
 
     Pipeline steps:
       1. Ceiling-capped methods (≥ 5×10⁸ nM) are excluded.
       2. Weighted geometric mean in log-space.
-      3. Binder-type calibration offset (antibody vs natural protein).
+      3. Binder-type calibration offset.
       4. Confidence from inter-method spread.
     """
+    # Build AffinityResult list from legacy keyword args when provided
+    if results is None:
+        results = []
+    if bsa_kd is not None:
+        results = list(results) + [AffinityResult("BSA_surface", 0.0, float(bsa_kd), {})]
+    if prodigy_kd is not None:
+        results = list(results) + [AffinityResult("PRODIGY", 0.0, float(prodigy_kd), {})]
+    if rosetta_ddg is not None:
+        # Convert ddG (kcal/mol) → approximate K_D: K_D = exp(ddG / RT) * 1e9 nM
+        # RT ≈ 0.593 kcal/mol at 298 K
+        import math as _math
+        kd_from_ddg = max(0.01, _math.exp(rosetta_ddg / 0.593) * 1e9)
+        results = list(results) + [AffinityResult("Rosetta_ddG", float(rosetta_ddg), kd_from_ddg, {})]
+
     all_kds = {r.method: r.kd_nM for r in results if r.kd_nM > 0}
 
     # Separate valid predictions from ceiling-capped ones
     valid = {m: kd for m, kd in all_kds.items() if kd < _CEILING_THRESHOLD}
     excluded = [m for m, kd in all_kds.items() if kd >= _CEILING_THRESHOLD]
+
+    # Add Boltz-2 structural scorer when ipTM is available (4-method DACS)
+    if iptm is not None and adaptive:
+        kd_af3 = boltz2_iptm_to_kd(iptm)
+        valid["Boltz2_AF3"] = kd_af3
+        all_kds["Boltz2_AF3"] = kd_af3
 
     if not valid:
         return {
@@ -613,14 +700,18 @@ def consensus_kd(
             "excluded_methods": excluded,
         }
 
-    # Determine whether adaptive weights should be used.
-    # Only activate when the full canonical method set is present;
-    # fall back to the original behaviour for unit tests or partial runs.
     is_antibody = binder_type in ("VH", "VL", "scFv")
     is_denovo = binder_type == "denovo"
     use_adaptive = adaptive and _REAL_METHODS.issubset(valid.keys())
 
-    if use_adaptive:
+    # Select weight scheme and calibration offset.
+    # Priority: 4-method AF3-inclusive > 3-method adaptive > v4 fixed.
+    af3_present = "Boltz2_AF3" in valid
+    if use_adaptive and af3_present:
+        # 4-method DACS — two ppi/denovo classes (manuscript publication mode)
+        weights = _DENOVO_WEIGHTS_AF3 if is_denovo else _PPI_WEIGHTS_AF3
+        cal_offset = _DENOVO_CALIBRATION_AF3 if is_denovo else _PPI_CALIBRATION_AF3
+    elif use_adaptive:
         if is_antibody:
             weights = _ADAPTIVE_ANTIBODY_WEIGHTS
             cal_offset = _ANTIBODY_CALIBRATION
@@ -658,6 +749,7 @@ def consensus_kd(
         "consensus_kd_nM": round(consensus, rounding),
         "log10_spread": round(spread, 2),
         "confidence": confidence,
+        "n_methods": len(valid),           # alias used by QA checks
         "n_methods_used": len(valid),
         "individual_kds": all_kds,
         "excluded_methods": excluded,

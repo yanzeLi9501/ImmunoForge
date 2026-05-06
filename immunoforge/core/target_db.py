@@ -321,6 +321,44 @@ TARGET_DB: list[TargetEntry] = [
         description="Prostate-specific membrane antigen; prostate cancer",
         benchmark_value=2,
     ),
+    # ──────────── Additional Immune Entries (v2.1) ────────────
+    TargetEntry(
+        name="TrkA", gene="NTRK1", cell_type="T cell", species="human",
+        uniprot="P04629", pdb_ids=["2IFG"],
+        known_binders=[
+            {"name": "LMTK3i-mAb", "kd_nM": 8.0, "type": "antibody"},
+        ],
+        description="NGF receptor TrkA; expressed on Treg/pain-sensing T cells",
+        benchmark_value=2,
+    ),
+    TargetEntry(
+        name="IL-7Ra", gene="IL7R", cell_type="T cell", species="human",
+        uniprot="P16871", pdb_ids=["3UP1"],
+        known_binders=[
+            {"name": "GSK2618960", "kd_nM": 0.4, "type": "antibody"},
+        ],
+        description="IL-7 receptor alpha chain; naive T cell homeostasis",
+        benchmark_value=2,
+    ),
+    TargetEntry(
+        name="PD-L1", gene="CD274", cell_type="macrophage", species="human",
+        uniprot="Q9NZQ7", pdb_ids=["3BIS", "5JDS"],
+        known_binders=[
+            {"name": "atezolizumab", "kd_nM": 0.4, "type": "antibody"},
+            {"name": "durvalumab",   "kd_nM": 0.1, "type": "antibody"},
+        ],
+        description="PD-L1; expressed on TAMs and tumour cells (immune entry)",
+        benchmark_value=3,
+    ),
+    TargetEntry(
+        name="TIGIT", gene="TIGIT", cell_type="NK cell", species="human",
+        uniprot="Q495A1", pdb_ids=["3Q0B"],
+        known_binders=[
+            {"name": "tiragolumab", "kd_nM": 0.5, "type": "antibody"},
+        ],
+        description="TIGIT checkpoint receptor on NK/CD8 T cells",
+        benchmark_value=2,
+    ),
 ]
 
 
