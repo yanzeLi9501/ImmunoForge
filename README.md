@@ -60,6 +60,10 @@ To inspect the available commands at any time, use `immunoforge --help`
 (standard), `immunoforge -h`, or the short alias `immunoforge --h`. The same
 help flags also work on subcommands such as `immunoforge run --h`.
 
+For a detailed walkthrough of CLI arguments and every active configuration
+section in `config/default_config.yaml`, see
+[`notebooks/parameter_reference.ipynb`](notebooks/parameter_reference.ipynb).
+
 ## CLI Reference
 
 ### `immunoforge run`
@@ -148,6 +152,7 @@ immunoforge/
 ├── pipeline/           # Pipeline step orchestration
 │   ├── steps/          # B1–B9 step modules
 │   └── runner.py       # Pipeline orchestrator
+├── notebooks/          # Detailed parameter reference notebook
 ├── cli.py              # CLI entry point
 └── __init__.py
 config/                 # YAML configuration files
@@ -292,4 +297,7 @@ This is the main user-facing switch for DNA output behavior.
 
 ## License
 
-MIT
+ImmunoForge is distributed under a **custom MIT-style Non-Commercial license**.
+Use, modification, and redistribution are allowed for research, academic,
+personal, and internal evaluation purposes, but **commercial use is prohibited**
+without prior written permission. See [`LICENSE`](LICENSE) for the full terms.

@@ -7,7 +7,7 @@ name = "immunoforge"
 version = "0.1.0"
 description = "De novo immune-cell-targeting protein design platform"
 readme = "README.md"
-license = {text = "MIT"}
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 authors = [
     {name = "ImmunoForge Team"},
