@@ -1,40 +1,31 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.egg-info/
 dist/
 build/
-.eggs/
-*.egg
-
-# Virtual environments
 .venv/
-venv/
-env/
-ENV/
-
-# Testing & coverage
+*.egg
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
 
-# Runtime outputs (created during pipeline execution)
-outputs/
-logs/
-*.log
+# Environment & secrets
+.env
+*.token
+*.key
 
-# Temp / editor files
-*.tmp
+# Artifacts
+*.tar.gz
+*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
 
-# Jupyter
-.ipynb_checkpoints/
-
-# Distribution
-*.tar.gz
-*.whl
+# Large outputs (track selectively via outputs/README.md)
+outputs/
+data/pdb_cache/
+*.bak*

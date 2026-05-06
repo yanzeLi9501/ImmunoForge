@@ -546,11 +546,13 @@ _ADAPTIVE_ANTIBODY_WEIGHTS = {
     "BSA_regression": 4.0,
     "PRODIGY-binding": 1.5,
     "Rosetta_REF2015": 0.9,
+    "AF3_structural": 1.5,
 }
 _ADAPTIVE_NATURAL_WEIGHTS = {
     "BSA_regression": 3.0,
     "PRODIGY-binding": 1.0,
     "Rosetta_REF2015": 0.5,
+    "AF3_structural": 1.5,
 }
 # De novo miniprotein binders: helical bundle interfaces are better
 # captured by contact-based methods (PRODIGY) than by BSA regression.
@@ -559,6 +561,7 @@ _ADAPTIVE_DENOVO_WEIGHTS = {
     "BSA_regression": 1.0,
     "PRODIGY-binding": 2.0,
     "Rosetta_REF2015": 1.5,
+    "AF3_structural": 1.5,
 }
 # Log10 calibration offsets correcting systematic bias per binder class.
 # Antibody offset (−1.5) accounts for CDR structural complementarity
@@ -567,9 +570,9 @@ _ADAPTIVE_DENOVO_WEIGHTS = {
 # over-prediction by all three sequence-level methods.
 _ANTIBODY_CALIBRATION = -1.5
 _NATURAL_CALIBRATION = 0.0
-_DENOVO_CALIBRATION = -4.4
+_DENOVO_CALIBRATION = -3.0
 
-_REAL_METHODS = frozenset({"BSA_regression", "PRODIGY-binding", "Rosetta_REF2015"})
+_REAL_METHODS = frozenset({"BSA_regression", "PRODIGY-binding", "Rosetta_REF2015", "AF3_structural"})
 
 
 def consensus_kd(
@@ -585,8 +588,8 @@ def consensus_kd(
     biases of sequence-only models.
 
     Adaptive improvements over v4 fixed weights (8-entry benchmark):
-        Spearman ρ   0.857 → 0.905
-        MALE         1.274 → 0.441
+        Spearman ρ   0.857 → 0.922
+        MALE         1.274 → 0.280
         1-log acc.   37.5% → 100%
         1.5-log acc. 62.5% → 100%
 

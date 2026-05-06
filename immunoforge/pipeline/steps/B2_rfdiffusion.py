@@ -10,6 +10,7 @@ for offline execution.
 
 import json
 import logging
+import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -17,6 +18,20 @@ from pathlib import Path
 from immunoforge.core.utils import save_json, ensure_dirs
 
 logger = logging.getLogger(__name__)
+
+# RFdiffusion tool paths
+RFD_DIR = "/home/data/liyanze/tools/RFdiffusion"
+VENV_PYTHON = "/home/data/liyanze/ImmunoForge/.venv/bin/python3"
+MODELS_DIR = f"{RFD_DIR}/models"
+RFD_SCRIPT = f"{RFD_DIR}/scripts/run_inference.py"
+BASE_DIR = "/home/data/liyanze/ImmunoForge"
+
+
+def _abs(p: str) -> str:
+    """Resolve relative path to absolute using ImmunoForge base dir."""
+    if os.path.isabs(p):
+        return p
+    return os.path.join(BASE_DIR, p)
 
 
 def _check_rfdiffusion() -> bool:
@@ -39,16 +54,19 @@ def generate_rfdiffusion_script(
     diffusion_steps: int = 50,
 ) -> str:
     """Generate RFdiffusion inference command."""
+    output_dir = _abs(output_dir)
+    structure_path = _abs(structure_path)
     cmd = (
-        f"python -m rfdiffusion.inference.model_runners.InferenceRunner "
+        f"cd {RFD_DIR} && {VENV_PYTHON} {RFD_SCRIPT} "
         f"inference.output_prefix={output_dir}/rfd_{target_name} "
         f"inference.input_pdb={structure_path} "
-        f"contigmap.contigs=['{contig}'] "
+        f"'contigmap.contigs=[{contig}]' "
         f"inference.num_designs={n_designs} "
         f"diffuser.T={diffusion_steps} "
+        f"inference.model_directory_path={MODELS_DIR} "
     )
     if hotspot_args:
-        cmd += f"ppi.hotspot_res={hotspot_args} "
+        cmd += f"'ppi.hotspot_res={hotspot_args}' "
 
     return cmd
 
@@ -63,13 +81,17 @@ def generate_dual_target_script(
     strategy: str = "shared_helix",
 ) -> str:
     """Generate dual-target RFdiffusion command."""
+    output_dir = _abs(output_dir)
+    target1_path = _abs(target1_path)
+    target2_path = _abs(target2_path)
     cmd = (
         f"# Dual-target design strategy: {strategy}\n"
-        f"python -m rfdiffusion.inference.model_runners.InferenceRunner "
+        f"cd {RFD_DIR} && {VENV_PYTHON} {RFD_SCRIPT} "
         f"inference.output_prefix={output_dir}/dual_{strategy} "
         f"inference.input_pdb={target1_path},{target2_path} "
-        f"contigmap.contigs=['{contig1}','{contig2}'] "
+        f"'contigmap.contigs=[{contig1},{contig2}]' "
         f"inference.num_designs={n_designs} "
+        f"inference.model_directory_path={MODELS_DIR} "
     )
     return cmd
 
@@ -124,10 +146,13 @@ def main(config: dict) -> dict:
         if has_rfd:
             logger.info(f"  Running RFdiffusion for {name}...")
             try:
-                subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                proc = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
                 result["backbones_generated"] += n_designs
+                logger.info(f"  RFdiffusion completed for {name}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"  RFdiffusion failed for {name}: {e}")
+                if e.stderr:
+                    logger.error(f"  stderr: {e.stderr[:500]}")
 
     # Dual-target designs
     target_names = list(targets.keys())

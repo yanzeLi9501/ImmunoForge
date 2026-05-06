@@ -47,6 +47,10 @@ HLA_II_ALLELES = [
 H2_I_ALLELES = ["H-2-Kb", "H-2-Db", "H-2-Kd", "H-2-Dd", "H-2-Kk"]
 H2_II_ALLELES = ["H-2-IAb", "H-2-IAd", "H-2-IEd"]
 
+# Cynomolgus macaque (Mafa) alleles
+MAFA_I_ALLELES = ["Mafa-A1*063", "Mafa-B*060"]
+MAFA_II_ALLELES = ["Mafa-DRB*10"]
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Sequence-based MHC binding motifs (PSSM approximation)
@@ -518,7 +522,12 @@ def predict_immunogenicity(
 
     # Try NetMHCpan first
     if use_netmhcpan and _check_netmhcpan():
-        alleles = HLA_I_SUPERTYPES if species == "human" else H2_I_ALLELES
+        if species.lower() == "mouse":
+            alleles = H2_I_ALLELES
+        elif species.lower() == "cynomolgus":
+            alleles = MAFA_I_ALLELES
+        else:
+            alleles = HLA_I_SUPERTYPES
         class_i_hits = run_netmhcpan(sequence, alleles=alleles[:6])
         method = "netmhcpan"
     elif species == "human":

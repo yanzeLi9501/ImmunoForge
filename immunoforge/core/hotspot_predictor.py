@@ -303,3 +303,75 @@ def predict_hotspots(
         return predict_hotspots_heuristic(
             sequence, residue_start, residue_end, top_k
         )
+
+
+
+def refine_hotspots_with_pae(
+    base_result: "HotspotResult",
+    pae_path: str,
+    binder_len: int,
+    target_len: int,
+    reweight_alpha: float = 0.5,
+    top_k: int | None = None,
+) -> "HotspotResult":
+    """Refine hotspot predictions using AF3/Boltz-2 PAE confidence.
+
+    Re-weights the base hotspot scores by PAE-derived confidence:
+        refined_score_j = (1 - alpha) * base_score_j + alpha * pae_weight_j
+
+    Hotspot residues where the structural prediction shows low inter-chain
+    PAE (high confidence in binder-target proximity) get boosted, while
+    residues with high PAE (uncertain interface) get down-weighted.
+
+    This connects Step B2 (hotspot prediction) with AF3 structural
+    validation, improving the reliability of interface hotspot selection.
+
+    Args:
+        base_result: Initial HotspotResult from ESM-2 attention or heuristic.
+        pae_path: Path to PAE .npz file from Boltz-2 binary prediction.
+        binder_len: Number of binder residues in the complex.
+        target_len: Number of target residues in the complex.
+        reweight_alpha: Mixing weight for PAE confidence (0 = ignore PAE,
+            1 = fully PAE-driven).  Default 0.5.
+        top_k: Number of top hotspots to re-select after reweighting.
+            If None, uses len(base_result.top_k_indices).
+
+    Returns:
+        New HotspotResult with PAE-refined scores and updated top-K.
+    """
+    from immunoforge.core.af3_scoring import extract_pae_hotspot_weights
+
+    if top_k is None:
+        top_k = len(base_result.top_k_indices) or 10
+
+    # Get PAE-based weights for all residue positions
+    all_indices = base_result.residue_indices  # 1-based
+    pae_weights = extract_pae_hotspot_weights(
+        pae_path, binder_len, target_len, all_indices,
+    )
+
+    # Refine scores
+    refined_scores = []
+    for idx, base_score in zip(all_indices, base_result.scores):
+        pae_w = pae_weights.get(idx, 0.5)
+        refined = (1.0 - reweight_alpha) * base_score + reweight_alpha * pae_w
+        refined_scores.append(round(refined, 4))
+
+    # Re-select top-K from refined scores
+    scored_pairs = sorted(
+        zip(all_indices, refined_scores), key=lambda x: x[1], reverse=True,
+    )
+    new_top_k = [idx for idx, _ in scored_pairs[:top_k]]
+
+    return HotspotResult(
+        method=f"{base_result.method}+pae_refined",
+        residue_indices=all_indices,
+        scores=refined_scores,
+        top_k_indices=sorted(new_top_k),
+        details={
+            **base_result.details,
+            "pae_refinement": True,
+            "reweight_alpha": reweight_alpha,
+            "pae_path": pae_path,
+        },
+    )

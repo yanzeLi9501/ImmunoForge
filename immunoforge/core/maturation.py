@@ -462,9 +462,64 @@ def _vesm_filter_variants(
 # Main maturation loop
 # ═══════════════════════════════════════════════════════════════════
 
+def _oracle_rerank(
+    candidates: list["MaturationCandidate"],
+    target_sequence: str | None = None,
+    top_n: int = 5,
+) -> list["MaturationCandidate"]:
+    """Rerank final-generation top candidates using AF3/Boltz-2 complex ipTM.
+
+    Runs binary complex prediction on up to top_n candidates and reorders
+    by structural affinity (ipTM-derived K_D) instead of sequence-only
+    consensus.  This serves as a structural 'oracle' filter on the final
+    maturation output.
+
+    If Boltz-2 is unavailable or target_sequence is None, returns the
+    input list unchanged.
+    """
+    if target_sequence is None or len(candidates) == 0:
+        return candidates
+
+    try:
+        from immunoforge.core.af3_scoring import score_binary_complex_iptm
+    except ImportError:
+        logger.info("  Oracle rerank: af3_scoring not available, skipping")
+        return candidates
+
+    pool = candidates[:top_n]
+    logger.info("  Oracle reranking top-%d candidates via Boltz-2 ...", len(pool))
+
+    scored = []
+    for cand in pool:
+        try:
+            result = score_binary_complex_iptm(
+                binder_id=cand.id,
+                binder_seq=cand.sequence,
+                target_seq=target_sequence,
+                target_name="target",
+                output_dir="outputs/maturation_oracle",
+                timeout=300,
+            )
+            scored.append((cand, result.iptm, result.structural_kd_nM))
+            logger.info("    %s: ipTM=%.3f  structural_K_D=%.1f nM",
+                        cand.id, result.iptm, result.structural_kd_nM)
+        except Exception as e:
+            logger.warning("    Oracle scoring failed for %s: %s", cand.id, e)
+            scored.append((cand, 0.0, 1e6))
+
+    # Sort by structural K_D (lower = tighter binding)
+    scored.sort(key=lambda x: x[2])
+    reranked = [c for c, _, _ in scored]
+
+    # Append any remaining candidates not in top_n
+    remaining = candidates[top_n:]
+    return reranked + remaining
+
+
 def run_maturation(
     parent_sequence: str,
     parent_id: str = "parent",
+    target_sequence: str | None = None,
     bsa: float = 1200.0,
     sc: float = 0.65,
     target_kd_nM: float = 50.0,
@@ -685,6 +740,9 @@ def run_maturation(
         if best_kd <= target_kd_nM:
             logger.info(f"  Target K_D reached at generation {gen}")
             break
+
+    # ── AF3/Boltz-2 oracle reranking (final generation top-5) ──
+    current_pool = _oracle_rerank(current_pool, target_sequence)
 
     # Final result
     best_overall = min(

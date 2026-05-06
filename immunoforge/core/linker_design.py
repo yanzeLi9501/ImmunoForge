@@ -86,6 +86,41 @@ class BispecificConstruct:
     orientations: list[dict] = field(default_factory=list)
 
 
+import numpy as np
+
+def calculate_terminal_distance(binder1_pdb_path: str, binder2_pdb_path: str) -> float:
+    """
+    Extracts the Euclidean distance between the actual C-terminus of Binder A 
+    and N-terminus of Binder B from structural models.
+    Supports physical 3D distance constraints instead of 1D additive length heuristics.
+    """
+    def _get_terminal_coord(pdb_path, get_n_term=True):
+        coords = []
+        try:
+            with open(pdb_path, 'r') as f:
+                for line in f:
+                    if line.startswith("ATOM  ") and line[12:16].strip() == "CA":
+                        try:
+                            x = float(line[30:38])
+                            y = float(line[38:46])
+                            z = float(line[46:54])
+                            coords.append(np.array([x, y, z]))
+                        except ValueError:
+                            pass
+            if coords:
+                return coords[0] if get_n_term else coords[-1]
+        except Exception:
+            pass
+        return None
+
+    c_term_A = _get_terminal_coord(binder1_pdb_path, get_n_term=False)
+    n_term_B = _get_terminal_coord(binder2_pdb_path, get_n_term=True)
+    
+    if c_term_A is not None and n_term_B is not None:
+        return float(np.linalg.norm(c_term_A - n_term_B))
+    
+    return 0.0
+
 def estimate_optimal_linker_length(
     binder1_len: int,
     binder2_len: int,

@@ -86,27 +86,18 @@ def _cmd_run(args):
     config = load_config(config_path)
 
     if args.species:
-        species_cfg = config.get("species")
-        if isinstance(species_cfg, dict):
-            species_cfg["default"] = args.species
-        else:
-            config["species"] = {"default": args.species}
+        config["species"] = args.species
     if args.output:
-        paths_cfg = config.setdefault("paths", {})
-        paths_cfg["output_dir"] = args.output
-        paths_cfg["logs_dir"] = str(Path(args.output) / "logs")
+        config.setdefault("output", {})["base_dir"] = args.output
 
     steps = args.steps
-    species_cfg = config.get("species", "mouse")
-    species_name = species_cfg.get("default", "mouse") if isinstance(species_cfg, dict) else species_cfg
-    print(f"[ImmunoForge] Running pipeline — species={species_name}")
+    print(f"[ImmunoForge] Running pipeline — species={config.get('species', 'mouse')}")
     summary = run_pipeline(config, steps=steps)
 
     print("\n=== Pipeline Summary ===")
-    for info in summary.get("step_results", []):
-        step_key = info.get("step", "unknown")
+    for step_key, info in summary.items():
         status = info.get("status", "unknown")
-        marker = "✓" if status == "completed" else "✗"
+        marker = "✓" if status == "done" else "✗"
         print(f"  {marker} {step_key}: {status}")
 
 

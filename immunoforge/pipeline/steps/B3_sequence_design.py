@@ -7,12 +7,23 @@ Generates ProteinMPNN commands or runs directly if available.
 
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path
 
 from immunoforge.core.utils import save_json, save_fasta, ensure_dirs
 
 logger = logging.getLogger(__name__)
+
+VENV_PYTHON = "/home/data/liyanze/ImmunoForge/.venv/bin/python3"
+BASE_DIR = "/home/data/liyanze/ImmunoForge"
+
+
+def _abs(p: str) -> str:
+    """Resolve relative path to absolute using ImmunoForge base dir."""
+    if os.path.isabs(p):
+        return p
+    return os.path.join(BASE_DIR, p)
 
 
 def _check_proteinmpnn() -> bool:
@@ -33,8 +44,10 @@ def generate_mpnn_command(
     model: str = "soluble",
 ) -> str:
     """Generate ProteinMPNN inference command."""
+    pdb_path = _abs(pdb_path)
+    output_dir = _abs(output_dir)
     return (
-        f"python protein_mpnn_run.py "
+        f"{VENV_PYTHON} -m protein_mpnn_run "
         f"--pdb_path {pdb_path} "
         f"--out_folder {output_dir} "
         f"--num_seq_per_target {n_sequences} "
@@ -47,21 +60,31 @@ def generate_mpnn_command(
 def parse_mpnn_output(fasta_path: str) -> list[tuple[str, str, float]]:
     """Parse ProteinMPNN FASTA output.
 
-    Returns list of (id, sequence, mpnn_score).
+    Returns list of (id, binder_sequence, mpnn_score).
+    Skips the first entry (WT target), extracts binder chain (after '/').
     """
+    backbone_name = Path(fasta_path).stem  # e.g. rfd_mCLEC9A_0
+
     results = []
     current_id = ""
     current_seq = []
     score = 0.0
+    entry_idx = 0
 
     with open(fasta_path) as f:
         for line in f:
             line = line.strip()
             if line.startswith(">"):
                 if current_id and current_seq:
-                    results.append((current_id, "".join(current_seq), score))
+                    full_seq = "".join(current_seq)
+                    # Extract binder chain (after '/'), skip WT
+                    if entry_idx > 1:  # entry_idx 1 = WT, 2+ = designs
+                        binder = full_seq.split("/")[-1] if "/" in full_seq else full_seq
+                        binder = binder.upper()
+                        design_id = f"{backbone_name}_seq{entry_idx - 1}"
+                        results.append((design_id, binder, score))
+                entry_idx += 1
                 current_id = line[1:].split(",")[0]
-                # Extract score from header if present
                 if "score=" in line:
                     try:
                         score = float(line.split("score=")[1].split(",")[0])
@@ -72,7 +95,12 @@ def parse_mpnn_output(fasta_path: str) -> list[tuple[str, str, float]]:
                 current_seq.append(line)
 
     if current_id and current_seq:
-        results.append((current_id, "".join(current_seq), score))
+        full_seq = "".join(current_seq)
+        if entry_idx > 1:
+            binder = full_seq.split("/")[-1] if "/" in full_seq else full_seq
+            binder = binder.upper()
+            design_id = f"{backbone_name}_seq{entry_idx - 1}"
+            results.append((design_id, binder, score))
 
     return results
 
@@ -108,12 +136,16 @@ def main(config: dict) -> dict:
         if has_mpnn:
             logger.info(f"  Running ProteinMPNN on {pdb_path.name}...")
             try:
-                subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                proc = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+                logger.info(f"  ProteinMPNN completed for {pdb_path.name}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"  ProteinMPNN failed: {e}")
+                if e.stderr:
+                    logger.error(f"  stderr: {e.stderr[:500]}")
 
-    # Parse outputs
-    fasta_files = sorted(mpnn_dir.glob("*.fa")) + sorted(mpnn_dir.glob("*.fasta"))
+    # Parse outputs (ProteinMPNN puts FASTAs in seqs/ subdirectory)
+    seqs_dir = mpnn_dir / "seqs"
+    fasta_files = sorted(seqs_dir.glob("*.fa")) if seqs_dir.exists() else []
     for fa in fasta_files:
         seqs = parse_mpnn_output(str(fa))
         all_sequences.extend(seqs)
