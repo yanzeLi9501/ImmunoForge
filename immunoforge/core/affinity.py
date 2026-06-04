@@ -584,10 +584,12 @@ _BOLTZ2_B = 6.0   # slope: log10-decades per unit ipTM
 _BOLTZ2_FLOOR_NM = 0.5   # physical lower bound (~sub-nM ultra-tight binders)
 _BOLTZ2_CEIL_NM  = 1e6   # ceiling (saturated / no-binding signal, 1 mM)
 
-# 4-method (AF3-inclusive) calibration offsets for ppi/denovo 2-class scheme
-# Recalibrated on N=18, 2-class split (Supp. Methods Table S3 panel e).
-_PPI_CALIBRATION_AF3    = -1.5659
-_DENOVO_CALIBRATION_AF3 = -3.4742
+# 4-method (AF3-inclusive) calibration offsets for ppi/denovo 2-class scheme.
+# Refit on the real-data benchmark (N=18: 15 train + 3 holdout), 2-class split.
+# Canonical calibration artifact: model_hash 5a076f7aa039
+# (train MALE 0.96 / rho 0.35; LOO MALE 1.16 / rho 0.25; holdout MALE 1.72).
+_PPI_CALIBRATION_AF3    = -2.4887
+_DENOVO_CALIBRATION_AF3 = -2.2122
 
 # 4-method DACS weights (Methods §1.3, v6)
 _PPI_WEIGHTS_AF3 = {

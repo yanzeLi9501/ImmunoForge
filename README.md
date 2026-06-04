@@ -217,14 +217,14 @@ class-dependent log-K_D offsets used by consensus scoring.
 
 | Parameter | Value | Used in |
 |-----------|-------|---------|
-| `delta_ppi` | −1.5659 | PPI / antibody-like calibration branch |
-| `delta_denovo` | −3.4742 | De novo miniprotein calibration branch |
-| `model_hash` | `9d7291409dd9` | Canonical calibration artifact identifier |
+| `delta_ppi` | −2.4887 | PPI / antibody-like calibration branch |
+| `delta_denovo` | −2.2122 | De novo miniprotein calibration branch |
+| `model_hash` | `5a076f7aa039` | Canonical calibration artifact identifier |
 | `N_train` | 15 | Training set size for the published fit |
 | `N_holdout` | 3 | Held-out benchmark size |
 
-Published summary metrics: train MALE = 0.89, LOO MALE = 1.02, LOO ρ = 0.39,
-holdout MALE = 1.07.
+Published summary metrics: train MALE = 0.96, LOO MALE = 1.16, LOO ρ = 0.25,
+holdout MALE = 1.72.
 
 ### Boltz-2 ipTM -> K_D conversion
 
