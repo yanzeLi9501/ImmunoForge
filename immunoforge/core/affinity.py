@@ -607,6 +607,53 @@ _DENOVO_WEIGHTS_AF3 = {
 
 _REAL_METHODS = frozenset({"BSA_regression", "PRODIGY-binding", "Rosetta_REF2015"})
 
+# v4 fixed-weight 3-method baseline (B0): the raw pre-DACS multi-method
+# consensus used as the DACS-Sig ensemble anchor.
+_B0_WEIGHTS = {"bsa": 3.0, "prodigy": 1.0, "rosetta": 0.5}
+
+
+def _extract_three_methods(valid: dict) -> tuple[float, float, float] | None:
+    """Pull (bsa, prodigy, rosetta) K_D (nM) out of a method->K_D map."""
+    bsa = prodigy = rosetta = None
+    for method, kd in valid.items():
+        m = method.upper()
+        if "BSA" in m:
+            bsa = kd
+        elif "PRODIGY" in m:
+            prodigy = kd
+        elif "ROSETTA" in m:
+            rosetta = kd
+    if None in (bsa, prodigy, rosetta):
+        return None
+    return float(bsa), float(prodigy), float(rosetta)
+
+
+def _dacs_sig_consensus(valid: dict, binder_type: str, *,
+                        esm2_gate: bool, esm2_ppl: float | None) -> dict | None:
+    """DACS-Sig (v6/v7) consensus from the 3 sequence/energy experts.
+
+    Returns ``None`` when the three experts are not all available (caller then
+    falls back to the v5 consensus).  The ensemble anchor B0 is the v4
+    fixed-weight 3-method baseline computed live from the same inputs.
+    """
+    from . import dacs_sig
+
+    three = _extract_three_methods(valid)
+    if three is None:
+        return None
+    bsa, prodigy, rosetta = three
+
+    lb, lp, lr = (math.log10(bsa), math.log10(prodigy), math.log10(rosetta))
+    wsum = sum(_B0_WEIGHTS.values())
+    b0_kd = 10.0 ** ((_B0_WEIGHTS["bsa"] * lb + _B0_WEIGHTS["prodigy"] * lp
+                      + _B0_WEIGHTS["rosetta"] * lr) / wsum)
+
+    return dacs_sig.dacs_sig_log_kd(
+        bsa, prodigy, rosetta,
+        dacs_sig.normalise_class(binder_type), b0_kd,
+        esm2_gate=esm2_gate, esm2_ppl=esm2_ppl,
+    )
+
 
 def boltz2_iptm_to_kd(iptm: float) -> float:
     """Convert Boltz-2 binary-complex ipTM score → K_D (nM).
@@ -640,6 +687,9 @@ def consensus_kd(
     bsa_kd: float | None = None,
     prodigy_kd: float | None = None,
     rosetta_ddg: float | None = None,
+    dacs_mode: str = "v5",
+    esm2_gate: bool = False,
+    esm2_ppl: float | None = None,
 ) -> dict:
     """Adaptive weighted consensus K_D from multiple methods.
 
@@ -658,6 +708,17 @@ def consensus_kd(
 
     When *adaptive=False*, uses v4 fixed weights (BSA 3, PRODIGY 1,
     Rosetta 0.5) with no calibration offset.
+
+    DACS-Sig (real-data optimisation)
+    ---------------------------------
+    When *dacs_mode="dacs_sig"* and the three sequence/energy methods are all
+    present, scoring uses the DACS-Sig (v6) model from
+    :mod:`immunoforge.core.dacs_sig` — adaptive no-structural-K_D consensus +
+    a shrunk global offset + a 0.5 ensemble with the raw multi-method baseline
+    B0.  On the fixed held-out split this lowers MALE from 1.72 (v5) to 0.37.
+    Set *esm2_gate=True* (optionally with a precomputed *esm2_ppl*) to enable
+    the ESM-2 sequence-reliability gate (v7).  The gate is an opt-in filter and
+    is disabled automatically when ESM-2 / *esm2_ppl* is unavailable.
 
     Can also be called with keyword-only args (legacy QA API):
         consensus_kd(bsa_kd=100, prodigy_kd=200, rosetta_ddg=-1.5, iptm=0.72, ...)
@@ -705,6 +766,37 @@ def consensus_kd(
     is_antibody = binder_type in ("VH", "VL", "scFv")
     is_denovo = binder_type == "denovo"
     use_adaptive = adaptive and _REAL_METHODS.issubset(valid.keys())
+
+    # ── DACS-Sig (v6/v7): real-data-optimised consensus ──
+    # Requires the three sequence/energy experts; the ipTM->K_D term is dropped
+    # as a direct K_D expert (used only as the optional v7 reliability gate).
+    if dacs_mode == "dacs_sig":
+        sig = _dacs_sig_consensus(valid, binder_type, esm2_gate=esm2_gate,
+                                  esm2_ppl=esm2_ppl)
+        if sig is not None:
+            spread = max(log_kd for log_kd in map(math.log10, valid.values())) - \
+                min(log_kd for log_kd in map(math.log10, valid.values())) \
+                if len(valid) > 1 else 0.0
+            consensus = sig["kd_nM"]
+            rounding = 4 if consensus < 1.0 else 1
+            return {
+                "consensus_kd_nM": round(consensus, rounding),
+                "log10_spread": round(spread, 2),
+                "confidence": ("high" if spread < 1.5
+                               else ("moderate" if spread < 3.0 else "low")),
+                "n_methods": len(valid),
+                "n_methods_used": len(valid),
+                "individual_kds": all_kds,
+                "excluded_methods": excluded,
+                "binder_type": binder_type,
+                "adaptive_weights": True,
+                "dacs_mode": sig["mode"],
+                "ensemble_weight": round(sig["ensemble_weight"], 4),
+            }
+        logger.warning(
+            "dacs_mode='dacs_sig' requested but the 3 sequence/energy methods "
+            "are not all present; falling back to the v5 consensus."
+        )
 
     # Select weight scheme and calibration offset.
     # Priority: 4-method AF3-inclusive > 3-method adaptive > v4 fixed.
@@ -766,12 +858,20 @@ def run_affinity_analysis(
     sc: float = 0.65,
     seed: int = 42,
     binder_type_override: str | None = None,
+    dacs_mode: str = "v5",
+    esm2_gate: bool = False,
+    iptm: float | None = None,
 ) -> dict:
     """Run full affinity analysis with all three methods + consensus.
 
     Automatically detects antibody domains and applies CDR-focused
     analysis for antibody-type binders.  Pass *binder_type_override*
     (e.g. ``"denovo"``) to force a specific calibration class.
+
+    *dacs_mode* selects the consensus model (``"v5"`` publication default or
+    ``"dacs_sig"`` real-data-optimised v6).  *esm2_gate* opts into the v7
+    ESM-2 sequence-reliability filter (computes the binder pseudo-perplexity
+    when ESM-2 is installed; disabled gracefully otherwise).
     """
     # Domain classification
     domain_type = classify_binder_type(binder_seq)
@@ -784,7 +884,28 @@ def run_affinity_analysis(
     r3 = bsa_regression(binder_seq, bsa, sc=sc, cdrs=cdrs if cdrs else None)
     hs = hotspot_score(binder_seq)
     consensus_type = binder_type_override if binder_type_override else domain_type
-    cons = consensus_kd([r1, r2, r3], binder_type=consensus_type)
+
+    esm2_ppl = None
+    if dacs_mode == "dacs_sig" and esm2_gate:
+        from . import dacs_sig as _dacs_sig
+        esm2_ppl = _dacs_sig.esm2_pseudo_perplexity(binder_seq)
+
+    cons = consensus_kd([r1, r2, r3], binder_type=consensus_type, iptm=iptm,
+                        dacs_mode=dacs_mode, esm2_gate=esm2_gate,
+                        esm2_ppl=esm2_ppl)
+
+    return {
+        "prodigy": {"dg": r1.dg_kcal_mol, "kd_nM": r1.kd_nM, **r1.details},
+        "rosetta": {"dg": r2.dg_kcal_mol, "kd_nM": r2.kd_nM, **r2.details},
+        "bsa_reg": {"dg": r3.dg_kcal_mol, "kd_nM": r3.kd_nM, **r3.details},
+        "hotspot": hs,
+        "consensus": cons,
+        "domain_classification": {
+            "type": domain_type,
+            "n_cdrs_identified": len(cdrs),
+            "cdrs": {k: v["seq"] for k, v in cdrs.items()} if cdrs else {},
+        },
+    }
 
     return {
         "prodigy": {"dg": r1.dg_kcal_mol, "kd_nM": r1.kd_nM, **r1.details},

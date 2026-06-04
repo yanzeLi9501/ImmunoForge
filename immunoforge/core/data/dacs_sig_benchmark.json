@@ -1,0 +1,281 @@
+{
+  "schema": "dacs_sig_benchmark/1.0",
+  "description": "Frozen 18-entry K_D benchmark inputs + DACS-Sig calibration constants for reproducible self-validation of the ImmunoForge DACS-Sig (v6) and ESM-2 gate (v7) scorers. Inputs only (no private/structural data). Holdout = Ipili/SIRPa/LCB3.",
+  "holdout_names": [
+    "Ipili",
+    "SIRPa",
+    "LCB3"
+  ],
+  "constants": {
+    "winsor_floor_log10": -1.878558,
+    "winsor_ceil_log10": 4.782821,
+    "global_offset_log10": -2.296084,
+    "ensemble_b0": 0.5,
+    "tau": 3.0,
+    "gate": {
+      "ppl0": 4.0,
+      "s": 2.0,
+      "ens_lo": 0.25,
+      "ens_hi": 0.5,
+      "esm2_model": "esm2_t33_650M_UR50D"
+    }
+  },
+  "reference_metrics_holdout": {
+    "B0": {
+      "MALE": 0.9811,
+      "within_1.5log": "3/3",
+      "rho": 0.5
+    },
+    "DACS_v5": {
+      "MALE": 1.721,
+      "within_1.5log": "1/3",
+      "rho": 1.0
+    },
+    "DACS_Sig_v6": {
+      "MALE": 0.3651,
+      "within_1.5log": "3/3",
+      "rho": 1.0
+    },
+    "DACS_Sig_v7_gate": {
+      "MALE": 0.302,
+      "within_1.5log": "3/3",
+      "rho": 1.0
+    }
+  },
+  "entries": [
+    {
+      "name": "OKT3",
+      "pdb_name": "OKT3_VH",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 1.0,
+      "bsa_kd_nM": 27.93,
+      "prodigy_kd_nM": 2618.7,
+      "rosetta_kd_nM": 4583.3,
+      "boltz2_iptm": 0.2248,
+      "v4_b0_kd_nM": 135.0,
+      "esm2_ppl": 1.9594638358199796
+    },
+    {
+      "name": "Nivo",
+      "pdb_name": "Nivolumab_VH",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 2.6,
+      "bsa_kd_nM": 1.55,
+      "prodigy_kd_nM": 553.2,
+      "rosetta_kd_nM": 781.3,
+      "boltz2_iptm": 0.3561,
+      "v4_b0_kd_nM": 11.4,
+      "esm2_ppl": 2.042600895384725
+    },
+    {
+      "name": "Pembro",
+      "pdb_name": "Pembrolizumab_VH",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 0.027,
+      "bsa_kd_nM": 0.04,
+      "prodigy_kd_nM": 48.7,
+      "rosetta_kd_nM": 124.2,
+      "boltz2_iptm": 0.4391,
+      "v4_b0_kd_nM": 0.5,
+      "esm2_ppl": 2.787864292069965
+    },
+    {
+      "name": "Ipili",
+      "pdb_name": "Ipilimumab_VH",
+      "binder_class": "ab",
+      "split": "holdout",
+      "exp_kd_nM": 6.2,
+      "bsa_kd_nM": 19.97,
+      "prodigy_kd_nM": 7356.8,
+      "rosetta_kd_nM": 12733.2,
+      "boltz2_iptm": 0.3684,
+      "v4_b0_kd_nM": 152.2,
+      "esm2_ppl": 2.229898106246136
+    },
+    {
+      "name": "10B12",
+      "pdb_name": "10B12_VH",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 0.4,
+      "bsa_kd_nM": 2.58,
+      "prodigy_kd_nM": 1518.0,
+      "rosetta_kd_nM": 1324.7,
+      "boltz2_iptm": 0.1864,
+      "v4_b0_kd_nM": 21.3,
+      "esm2_ppl": 2.195752125523178
+    },
+    {
+      "name": "MICA",
+      "pdb_name": "MICA_ecto",
+      "binder_class": "nat",
+      "split": "train",
+      "exp_kd_nM": 1000.0,
+      "bsa_kd_nM": 457.23,
+      "prodigy_kd_nM": 4683.1,
+      "rosetta_kd_nM": 3355.6,
+      "boltz2_iptm": 0.2944,
+      "v4_b0_kd_nM": 956.9,
+      "esm2_ppl": 4.125424733646713
+    },
+    {
+      "name": "FMC63",
+      "pdb_name": "FMC63_scFv",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 5.0,
+      "bsa_kd_nM": 260.52,
+      "prodigy_kd_nM": 11443.0,
+      "rosetta_kd_nM": 22392.1,
+      "boltz2_iptm": 0.1676,
+      "v4_b0_kd_nM": 990.4,
+      "esm2_ppl": 3.693143495826289
+    },
+    {
+      "name": "SIRPa",
+      "pdb_name": "SIRPa_D1",
+      "binder_class": "nat",
+      "split": "holdout",
+      "exp_kd_nM": 1000.0,
+      "bsa_kd_nM": 1419.13,
+      "prodigy_kd_nM": 58180.2,
+      "rosetta_kd_nM": 111170.3,
+      "boltz2_iptm": 0.6216,
+      "v4_b0_kd_nM": 5258.4,
+      "esm2_ppl": 11.822809076770822
+    },
+    {
+      "name": "HA_20",
+      "pdb_name": "HA_20_RFdiff",
+      "binder_class": "denovo",
+      "split": "train",
+      "exp_kd_nM": 5.0,
+      "bsa_kd_nM": 59467.22,
+      "prodigy_kd_nM": 2305563.3,
+      "rosetta_kd_nM": 883030.5,
+      "boltz2_iptm": 0.7181,
+      "v4_b0_kd_nM": 24.93,
+      "esm2_ppl": 3.9079661454057595
+    },
+    {
+      "name": "LCB1",
+      "pdb_name": "LCB1_mini",
+      "binder_class": "denovo",
+      "split": "train",
+      "exp_kd_nM": 0.2,
+      "bsa_kd_nM": 7512.93,
+      "prodigy_kd_nM": 469746.6,
+      "rosetta_kd_nM": 73641.7,
+      "boltz2_iptm": 0.7356,
+      "v4_b0_kd_nM": 2.65,
+      "esm2_ppl": 7.5518683108247915
+    },
+    {
+      "name": "LCB3",
+      "pdb_name": "LCB3_mini",
+      "binder_class": "denovo",
+      "split": "holdout",
+      "exp_kd_nM": 48.0,
+      "bsa_kd_nM": 16721.94,
+      "prodigy_kd_nM": 900480.0,
+      "rosetta_kd_nM": 118130.5,
+      "boltz2_iptm": 0.8222,
+      "v4_b0_kd_nM": 7.06,
+      "esm2_ppl": 9.778027930687028
+    },
+    {
+      "name": "Neo2_15",
+      "pdb_name": "Neo2_15",
+      "binder_class": "denovo",
+      "split": "train",
+      "exp_kd_nM": 4.5,
+      "bsa_kd_nM": 295.27,
+      "prodigy_kd_nM": 23487.2,
+      "rosetta_kd_nM": 11915.5,
+      "boltz2_iptm": 0.8734,
+      "v4_b0_kd_nM": 0.42,
+      "esm2_ppl": 15.902911525728038
+    },
+    {
+      "name": "Atezo",
+      "pdb_name": "Atezolizumab_VH",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 9.96,
+      "bsa_kd_nM": 8.97,
+      "prodigy_kd_nM": 3971.6,
+      "rosetta_kd_nM": 7093.5,
+      "boltz2_iptm": 0.6744,
+      "v4_b0_kd_nM": 72.9,
+      "esm2_ppl": 2.104373886220783
+    },
+    {
+      "name": "Trastuzumab",
+      "pdb_name": "1N8Z",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 0.1,
+      "bsa_kd_nM": 0.001,
+      "prodigy_kd_nM": 0.001,
+      "rosetta_kd_nM": 0.001,
+      "boltz2_iptm": 0.5757,
+      "v4_b0_kd_nM": 0.001,
+      "esm2_ppl": 3.1255551893137494
+    },
+    {
+      "name": "Cetuximab",
+      "pdb_name": "1YY9",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 0.39,
+      "bsa_kd_nM": 1633.82,
+      "prodigy_kd_nM": 15407.05,
+      "rosetta_kd_nM": 8546.28,
+      "boltz2_iptm": 0.8411,
+      "v4_b0_kd_nM": 3233.0,
+      "esm2_ppl": 3.688915076272105
+    },
+    {
+      "name": "Adalimumab",
+      "pdb_name": "3WD5",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 0.1,
+      "bsa_kd_nM": 9920.22,
+      "prodigy_kd_nM": 56609.83,
+      "rosetta_kd_nM": 14569.87,
+      "boltz2_iptm": 0.5503,
+      "v4_b0_kd_nM": 15245.9,
+      "esm2_ppl": 3.0842516029403044
+    },
+    {
+      "name": "Bevacizumab",
+      "pdb_name": "1BJ1",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 1.1,
+      "bsa_kd_nM": 63497.27,
+      "prodigy_kd_nM": 15213.96,
+      "rosetta_kd_nM": 4921.03,
+      "boltz2_iptm": 0.577,
+      "v4_b0_kd_nM": 34789.8,
+      "esm2_ppl": 3.2399796922048445
+    },
+    {
+      "name": "Daratumumab",
+      "pdb_name": "7DHA",
+      "binder_class": "ab",
+      "split": "train",
+      "exp_kd_nM": 4.4,
+      "bsa_kd_nM": 64.76,
+      "prodigy_kd_nM": 464.79,
+      "rosetta_kd_nM": 349.77,
+      "boltz2_iptm": 0.3947,
+      "v4_b0_kd_nM": 121.0,
+      "esm2_ppl": 2.718906247860103
+    }
+  ]
+}

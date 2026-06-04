@@ -13,7 +13,7 @@ molecule design, codon optimization, and command-line execution.
 - **Multi-species support**: Mouse / Human / Cynomolgus macaque / Camelid (VHH)
 - **Built-in immune target database**: 24 receptor entries (27 binder–receptor pairs) spanning T cell, NK cell, DC, macrophage, B cell
 - **Sequence QC**: protease site, toxicity, APR, Cys parity, pI filtering
-- **Domain-Aware Consensus Scoring (DACS)**: 4-method consensus K_D (BSA / PRODIGY / Rosetta / Boltz-2 ipTM), 2-class calibration
+- **Domain-Aware Consensus Scoring (DACS)**: multi-method consensus K_D (BSA / PRODIGY / Rosetta / Boltz-2 ipTM), with a real-data-optimised **DACS-Sig** model (held-out MALE 1.72 → **0.37**) and an optional ESM-2 sequence-reliability filter
 - **Bispecific geometry filter**: synapse-distance constraint (13–15 nm)
 - **Codon optimization**: Vaccinia / Lentivirus / mRNA-LNP / AAV / CHO / HEK293T cassette modes
 
@@ -199,7 +199,7 @@ important top-level sections are:
 | `structure_validation` | Post-design structure screen | `method`, `dual_evaluation`, `high_threshold`, `medium_threshold` |
 | `hotspot_prediction` | Auto-hotspot behavior in B1 | `enabled`, `method`, `top_k` |
 | `sequence_optimization` | Optional B3a search intensification | `temperatures`, `seqs_per_temperature`, `stage*_...` fields |
-| `affinity` | Affinity-analysis settings | `methods`, `consensus`, `confidence_threshold_log10` |
+| `affinity` | Affinity-analysis settings | `methods`, `consensus`, `confidence_threshold_log10`, `dacs_mode`, `esm2_gate` |
 | `ranking` | Candidate selection controls | `top_n`, `synthesis_top_n`, optional `weights` override |
 | `codon_optimization` | DNA design settings | codon tables, GC target, site-avoid rules, signal peptides |
 | `paths` | Output locations | `output_dir`, `data_dir`, `structures_dir`, `logs_dir` |
@@ -225,6 +225,56 @@ class-dependent log-K_D offsets used by consensus scoring.
 
 Published summary metrics: train MALE = 0.96, LOO MALE = 1.16, LOO ρ = 0.25,
 holdout MALE = 1.72.
+
+### DACS-Sig (real-data optimization)
+
+`DACS-Sig` is the real-data-optimised consensus model. It directly fixes the
+highest-priority weakness of the publication DACS (v5): on the fixed held-out
+split (Ipilimumab / SIRPα / LCB3), v5 over-fit two free class offsets on top of
+a structural ipTM→K_D term and scored *worse* than the raw pre-DACS baseline.
+DACS-Sig instead uses adaptive per-class/per-strength weights over the three
+sequence/energy experts only (BSA / PRODIGY / Rosetta — the ipTM term is dropped
+as a direct K_D expert), BSA winsorization, a single strongly-shrunk **global**
+log-K_D offset, and a 0.5 ensemble with the baseline B0 for variance reduction.
+All hyper-parameters were selected by TRAIN-only leave-one-out CV; the held-out
+split is a frozen out-of-sample outcome.
+
+Held-out (Ipili / SIRPα / LCB3) comparison:
+
+| Metric | B0 baseline | DACS v5 (publication) | **DACS-Sig (v6)** |
+|--------|-------------|-----------------------|-------------------|
+| Held-out MALE | 0.9811 | 1.7210 | **0.3651** |
+| ≤ 1.5-log entries | 3/3 | 1/3 | **3/3** |
+| Held-out ρ | 0.50 | 1.00 | **1.00** |
+| LOO-CV MALE (N=18) | 1.766 | — | **1.372** |
+
+**Optional ESM-2 gate (v7).** With `esm2_gate: true` (or `--esm2-gate`), a
+per-entry ensemble weight is modulated by the binder's ESM-2 masked
+pseudo-perplexity — a sequence-only reliability signal that never sees the
+target and is never a K_D term. The manuscript reports the gate as an honest
+negative ablation (it improves point estimates but removes 96-split
+significance), so it is **off by default** and offered as an opt-in filter. It
+requires the optional `[gpu]` extra (`torch` + `fair-esm`); when ESM-2 is
+unavailable the gate disables itself automatically and falls back to v6.
+
+Select the model from config (`affinity.dacs_mode: dacs_sig` is the recommended
+default) or per-run from the CLI:
+
+```bash
+# Real-data-optimised DACS-Sig (recommended; also the config default)
+immunoforge run --dacs-mode dacs_sig
+
+# Reproduce the publication DACS (v5)
+immunoforge run --dacs-mode v5
+
+# DACS-Sig + optional ESM-2 reliability gate (needs the [gpu] extra)
+immunoforge run --dacs-mode dacs_sig --esm2-gate
+```
+
+Frozen benchmark inputs and calibration constants ship with the package at
+`immunoforge/core/data/dacs_sig_benchmark.json` (inputs only — no private data),
+so the held-out numbers above are reproduced by `tests/test_dacs_sig.py` on a
+clean install.
 
 ### Boltz-2 ipTM -> K_D conversion
 
@@ -286,7 +336,7 @@ This is the main user-facing switch for DNA output behavior.
 ## Reproducibility Reference
 
 - Immune target database: 24 receptor entries, 27 documented binder-receptor pairs
-- DACS mode: 4-method consensus K_D with 2 calibration classes
+- DACS modes: publication v5 (4-method, 2-class) and real-data-optimised DACS-Sig v6 (held-out MALE 0.37) + optional ESM-2 gate (v7)
 - Bispecific synapse geometry window: **13-15 nm**
 - Codon cassette modes exposed by CLI: `vaccinia`, `aav`, `lentivirus`, `mrna`, `cho`, `hek293t`
 

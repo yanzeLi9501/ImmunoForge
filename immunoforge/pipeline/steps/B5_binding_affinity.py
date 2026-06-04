@@ -59,6 +59,11 @@ def main(config: dict) -> dict:
     _PIPELINE_BT_MAP = {"de_novo": "denovo", "denovo": "denovo"}
     type_override = _PIPELINE_BT_MAP.get(binder_type_cfg)
 
+    affinity_cfg = config.get("affinity", {}) or {}
+    dacs_mode = affinity_cfg.get("dacs_mode", "v5")
+    esm2_gate = bool(affinity_cfg.get("esm2_gate", False))
+    logger.info(f"  Consensus model: dacs_mode={dacs_mode}, esm2_gate={esm2_gate}")
+
     for entry in validated:
         seq = entry["sequence"]
         sid = entry["id"]
@@ -68,6 +73,7 @@ def main(config: dict) -> dict:
         affinity = run_affinity_analysis(
             seq, bsa, sc, seed=hash(sid) % (2**31),
             binder_type_override=type_override,
+            dacs_mode=dacs_mode, esm2_gate=esm2_gate,
         )
 
         scored.append({

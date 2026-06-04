@@ -42,6 +42,17 @@ def main():
         "-o", "--output", default=None,
         help="Override output directory",
     )
+    run_p.add_argument(
+        "--dacs-mode", choices=["v5", "dacs_sig"], default=None,
+        help="Affinity consensus model: 'dacs_sig' (real-data-optimised v6, "
+             "recommended) or 'v5' (publication 4-method DACS). "
+             "Overrides config affinity.dacs_mode.",
+    )
+    run_p.add_argument(
+        "--esm2-gate", action="store_true", default=False,
+        help="Enable the optional ESM-2 sequence-reliability gate (v7). "
+             "Needs the [gpu] extra; disabled gracefully if ESM-2 is absent.",
+    )
 
     # ── qc ──
     qc_p = sub.add_parser("qc", help="Run sequence QC on a FASTA file", add_help=False)
@@ -102,6 +113,12 @@ def _cmd_run(args):
         paths_cfg = config.setdefault("paths", {})
         paths_cfg["output_dir"] = args.output
         paths_cfg.setdefault("logs_dir", str(Path(args.output) / "logs"))
+
+    affinity_cfg = config.setdefault("affinity", {})
+    if args.dacs_mode:
+        affinity_cfg["dacs_mode"] = args.dacs_mode
+    if args.esm2_gate:
+        affinity_cfg["esm2_gate"] = True
 
     steps = args.steps
     species_cfg = config.get("species", {})

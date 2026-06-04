@@ -27,6 +27,7 @@ dependencies = [
 [project.optional-dependencies]
 gpu = [
     "torch>=2.0",
+    "fair-esm>=2.0",
 ]
 dev = [
     "pytest>=7.0",
@@ -39,6 +40,9 @@ immunoforge = "immunoforge.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["immunoforge*"]
+
+[tool.setuptools.package-data]
+"immunoforge.core" = ["data/*.json"]
 
 [tool.ruff]
 line-length = 100
