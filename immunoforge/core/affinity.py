@@ -15,6 +15,7 @@ Plus hot-spot enrichment analysis (Trp/Tyr/Arg density).
 import logging
 import math
 import re
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -655,6 +656,42 @@ def _dacs_sig_consensus(valid: dict, binder_type: str, *,
     )
 
 
+def _resolve_dacs(dacs_mode: str | None, esm2_gate: bool) -> tuple[str, bool]:
+    """Map a requested DACS mode/version to ``(engine_mode, gate_on)``.
+
+    The publication model is **DACS-Sig**; its two versions differ *only* by
+    whether the optional ESM-2 sequence-reliability gate is applied:
+
+      * ``"v6"`` / ``"dacs_sig"`` → DACS-Sig, gate per *esm2_gate* (default off);
+      * ``"v7"``                 → DACS-Sig with the ESM-2 gate **on**;
+      * ``"v5"``                 → deprecated legacy 3/4-method DACS (emits a
+        :class:`DeprecationWarning`).
+
+    Any unrecognised value falls back to the publication DACS-Sig (v6).
+    """
+    m = str(dacs_mode or "dacs_sig").strip().lower()
+    if m in ("v6", "dacs_sig", "sig", "dacs-sig"):
+        return "dacs_sig", bool(esm2_gate)
+    if m == "v7":
+        return "dacs_sig", True
+    if m == "v5":
+        warnings.warn(
+            "DACS v5 is deprecated; the publication model is DACS-Sig (v6/v7). "
+            "Select it with dacs_mode='v6'/'v7' or esm2_gate=True.",
+            DeprecationWarning, stacklevel=3,
+        )
+        return "v5", False
+    logger.warning("Unknown dacs_mode=%r; using publication DACS-Sig (v6).",
+                   dacs_mode)
+    return "dacs_sig", bool(esm2_gate)
+
+
+def _gate_requested(dacs_mode: str | None, esm2_gate: bool) -> bool:
+    """Whether the ESM-2 gate (v7) is requested, without emitting warnings."""
+    m = str(dacs_mode or "").strip().lower()
+    return m != "v5" and (bool(esm2_gate) or m == "v7")
+
+
 def boltz2_iptm_to_kd(iptm: float) -> float:
     """Convert Boltz-2 binary-complex ipTM score → K_D (nM).
 
@@ -687,38 +724,37 @@ def consensus_kd(
     bsa_kd: float | None = None,
     prodigy_kd: float | None = None,
     rosetta_ddg: float | None = None,
-    dacs_mode: str = "v5",
+    dacs_mode: str = "dacs_sig",
     esm2_gate: bool = False,
     esm2_ppl: float | None = None,
 ) -> dict:
     """Adaptive weighted consensus K_D from multiple methods.
 
-    When *adaptive=True* (default) and all three canonical prediction
-    methods are present, selects binder-type-dependent weights and
-    applies a calibration offset that corrects for known systematic
-    biases of sequence-only models.
+    Publication model — DACS-Sig (v6/v7)
+    ------------------------------------
+    The default *dacs_mode="dacs_sig"* uses the real-data-optimised **DACS-Sig**
+    scorer from :mod:`immunoforge.core.dacs_sig` (the published model): an
+    adaptive, no-structural-K_D consensus over the three sequence/energy experts
+    (BSA / PRODIGY / Rosetta) + a shrunk global offset + a 0.5 ensemble with the
+    raw multi-method baseline B0.  Its two versions differ only by the optional
+    ESM-2 sequence-reliability gate:
 
-    When *iptm* (Boltz-2 binary-complex ipTM score) is provided, activates
-    the full 4-method DACS formula (3 sequence + 1 structural scorer) with
-    two-class ppi/de-novo calibration.  This is the primary publication mode
-    described in Methods §1.3.
+      * **v6** — gate off (``esm2_gate=False``, the default);
+      * **v7** — gate on (``esm2_gate=True`` or ``dacs_mode="v7"``); when an
+        ESM-2 pseudo-perplexity (*esm2_ppl*) is unavailable the gate disables
+        itself and falls back to v6.
 
-    Without *iptm*, reverts to the 3-method adaptive consensus (v5) which
-    uses the 3-class antibody/natural-protein/de-novo calibration.
+    On the fixed held-out split this scores MALE 0.37 (v6) / 0.30 (v7) versus
+    1.72 for the deprecated v5 model.
 
-    When *adaptive=False*, uses v4 fixed weights (BSA 3, PRODIGY 1,
-    Rosetta 0.5) with no calibration offset.
-
-    DACS-Sig (real-data optimisation)
-    ---------------------------------
-    When *dacs_mode="dacs_sig"* and the three sequence/energy methods are all
-    present, scoring uses the DACS-Sig (v6) model from
-    :mod:`immunoforge.core.dacs_sig` — adaptive no-structural-K_D consensus +
-    a shrunk global offset + a 0.5 ensemble with the raw multi-method baseline
-    B0.  On the fixed held-out split this lowers MALE from 1.72 (v5) to 0.37.
-    Set *esm2_gate=True* (optionally with a precomputed *esm2_ppl*) to enable
-    the ESM-2 sequence-reliability gate (v7).  The gate is an opt-in filter and
-    is disabled automatically when ESM-2 / *esm2_ppl* is unavailable.
+    Deprecated — DACS v5
+    --------------------
+    ``dacs_mode="v5"`` selects the legacy model retained only for backward
+    compatibility; it emits a :class:`DeprecationWarning`.  With *iptm*
+    (Boltz-2 binary-complex ipTM) it runs the 4-method formula (3 sequence + 1
+    structural scorer, 2-class ppi/de-novo calibration); without *iptm* it runs
+    the 3-method adaptive consensus (3-class calibration).  ``adaptive=False``
+    uses v4 fixed weights (BSA 3, PRODIGY 1, Rosetta 0.5) with no offset.
 
     Can also be called with keyword-only args (legacy QA API):
         consensus_kd(bsa_kd=100, prodigy_kd=200, rosetta_ddg=-1.5, iptm=0.72, ...)
@@ -767,7 +803,10 @@ def consensus_kd(
     is_denovo = binder_type == "denovo"
     use_adaptive = adaptive and _REAL_METHODS.issubset(valid.keys())
 
-    # ── DACS-Sig (v6/v7): real-data-optimised consensus ──
+    # Resolve the requested DACS version (v5 deprecated; DACS-Sig v6/v7).
+    dacs_mode, esm2_gate = _resolve_dacs(dacs_mode, esm2_gate)
+
+    # ── DACS-Sig (v6/v7): publication consensus ──
     # Requires the three sequence/energy experts; the ipTM->K_D term is dropped
     # as a direct K_D expert (used only as the optional v7 reliability gate).
     if dacs_mode == "dacs_sig":
@@ -791,11 +830,12 @@ def consensus_kd(
                 "binder_type": binder_type,
                 "adaptive_weights": True,
                 "dacs_mode": sig["mode"],
+                "dacs_version": sig["version"],
                 "ensemble_weight": round(sig["ensemble_weight"], 4),
             }
         logger.warning(
-            "dacs_mode='dacs_sig' requested but the 3 sequence/energy methods "
-            "are not all present; falling back to the v5 consensus."
+            "DACS-Sig requested but the 3 sequence/energy methods are not all "
+            "present; falling back to the legacy v5 consensus."
         )
 
     # Select weight scheme and calibration offset.
@@ -858,7 +898,7 @@ def run_affinity_analysis(
     sc: float = 0.65,
     seed: int = 42,
     binder_type_override: str | None = None,
-    dacs_mode: str = "v5",
+    dacs_mode: str = "dacs_sig",
     esm2_gate: bool = False,
     iptm: float | None = None,
 ) -> dict:
@@ -868,10 +908,11 @@ def run_affinity_analysis(
     analysis for antibody-type binders.  Pass *binder_type_override*
     (e.g. ``"denovo"``) to force a specific calibration class.
 
-    *dacs_mode* selects the consensus model (``"v5"`` publication default or
-    ``"dacs_sig"`` real-data-optimised v6).  *esm2_gate* opts into the v7
-    ESM-2 sequence-reliability filter (computes the binder pseudo-perplexity
-    when ESM-2 is installed; disabled gracefully otherwise).
+    *dacs_mode* selects the publication DACS-Sig version: ``"v6"``/``"dacs_sig"``
+    (gate off, default) or ``"v7"`` (ESM-2 gate on; equivalent to
+    ``esm2_gate=True``).  ``"v5"`` selects the deprecated legacy model.  When the
+    gate is requested, the binder ESM-2 pseudo-perplexity is computed if ESM-2
+    is installed; otherwise the gate disables itself gracefully.
     """
     # Domain classification
     domain_type = classify_binder_type(binder_seq)
@@ -886,7 +927,7 @@ def run_affinity_analysis(
     consensus_type = binder_type_override if binder_type_override else domain_type
 
     esm2_ppl = None
-    if dacs_mode == "dacs_sig" and esm2_gate:
+    if _gate_requested(dacs_mode, esm2_gate):
         from . import dacs_sig as _dacs_sig
         esm2_ppl = _dacs_sig.esm2_pseudo_perplexity(binder_seq)
 

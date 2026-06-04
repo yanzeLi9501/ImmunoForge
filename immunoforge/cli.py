@@ -43,15 +43,14 @@ def main():
         help="Override output directory",
     )
     run_p.add_argument(
-        "--dacs-mode", choices=["v5", "dacs_sig"], default=None,
-        help="Affinity consensus model: 'dacs_sig' (real-data-optimised v6, "
-             "recommended) or 'v5' (publication 4-method DACS). "
-             "Overrides config affinity.dacs_mode.",
+        "--dacs-version", choices=["v6", "v7"], default=None,
+        help="DACS-Sig version (publication model): 'v6' (no gate, default) or "
+             "'v7' (ESM-2 sequence-reliability gate). Overrides config.",
     )
     run_p.add_argument(
         "--esm2-gate", action="store_true", default=False,
-        help="Enable the optional ESM-2 sequence-reliability gate (v7). "
-             "Needs the [gpu] extra; disabled gracefully if ESM-2 is absent.",
+        help="Shortcut for DACS-Sig v7 (enable the ESM-2 gate). Needs the [gpu] "
+             "extra; disabled gracefully if ESM-2 is absent.",
     )
 
     # ── qc ──
@@ -115,10 +114,13 @@ def _cmd_run(args):
         paths_cfg.setdefault("logs_dir", str(Path(args.output) / "logs"))
 
     affinity_cfg = config.setdefault("affinity", {})
-    if args.dacs_mode:
-        affinity_cfg["dacs_mode"] = args.dacs_mode
-    if args.esm2_gate:
+    # DACS-Sig version is selected purely by the gate: v6 (off) / v7 (on).
+    if args.dacs_version == "v7" or args.esm2_gate:
+        affinity_cfg["dacs_mode"] = "dacs_sig"
         affinity_cfg["esm2_gate"] = True
+    elif args.dacs_version == "v6":
+        affinity_cfg["dacs_mode"] = "dacs_sig"
+        affinity_cfg["esm2_gate"] = False
 
     steps = args.steps
     species_cfg = config.get("species", {})

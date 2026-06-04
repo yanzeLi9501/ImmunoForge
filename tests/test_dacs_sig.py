@@ -107,3 +107,72 @@ def test_esm2_pseudo_perplexity_optional():
     """Must return None (not raise) when torch/fair-esm are unavailable."""
     val = dacs_sig.esm2_pseudo_perplexity("MSQAKKDPLDPATAQLASARGT")
     assert val is None or val > 0
+
+
+def test_dacs_sig_log_kd_reports_version(bench):
+    e = _holdout(bench)[0]
+    v6 = dacs_sig.dacs_sig_log_kd(
+        e["bsa_kd_nM"], e["prodigy_kd_nM"], e["rosetta_kd_nM"],
+        e["binder_class"], e["v4_b0_kd_nM"],
+    )
+    v7 = dacs_sig.dacs_sig_log_kd(
+        e["bsa_kd_nM"], e["prodigy_kd_nM"], e["rosetta_kd_nM"],
+        e["binder_class"], e["v4_b0_kd_nM"],
+        esm2_gate=True, esm2_ppl=e["esm2_ppl"],
+    )
+    assert v6["version"] == "v6"
+    assert v7["version"] == "v7"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Integration: DACS-Sig (v6/v7) is the publication default in affinity.py
+# ═══════════════════════════════════════════════════════════════════
+
+import warnings  # noqa: E402
+
+from immunoforge.core import affinity  # noqa: E402
+
+
+def _real_three():
+    """Three AffinityResults whose method names map to BSA/PRODIGY/Rosetta."""
+    return [
+        affinity.AffinityResult("BSA_regression", -10.0, 100.0, {}),
+        affinity.AffinityResult("PRODIGY-binding", -10.0, 200.0, {}),
+        affinity.AffinityResult("Rosetta_REF2015", -10.0, 150.0, {}),
+    ]
+
+
+def test_consensus_default_is_dacs_sig_v6():
+    """Default consensus_kd now uses the publication DACS-Sig v6 (no gate)."""
+    res = affinity.consensus_kd(_real_three(), binder_type="natural_protein")
+    assert res["dacs_version"] == "v6"
+    assert res["dacs_mode"] == "dacs_sig_v6"
+
+
+def test_consensus_v7_alias_enables_gate_then_falls_back():
+    """dacs_mode='v7' requests the gate; without a PPL it degrades to v6."""
+    res = affinity.consensus_kd(_real_three(), binder_type="natural_protein",
+                                dacs_mode="v7")
+    # No esm2_ppl provided and ESM-2 not installed -> graceful v6 fallback.
+    assert res["dacs_version"] == "v6"
+
+
+def test_consensus_v7_with_ppl_is_v7():
+    res = affinity.consensus_kd(_real_three(), binder_type="natural_protein",
+                                dacs_mode="v7", esm2_ppl=4.0)
+    assert res["dacs_version"] == "v7"
+    assert res["dacs_mode"] == "dacs_sig_v7_gate"
+
+
+def test_v5_emits_deprecation_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        affinity.consensus_kd(_real_three(), binder_type="natural_protein",
+                              dacs_mode="v5")
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+
+def test_run_affinity_analysis_defaults_to_v6():
+    out = affinity.run_affinity_analysis("MSQAKKDPLDPATAQLASARGTGGSGGSRGT", 1200)
+    assert out["consensus"]["dacs_version"] == "v6"
+

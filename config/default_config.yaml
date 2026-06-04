@@ -120,13 +120,17 @@ affinity:
   consensus: "geometric_mean"
   hotspot_analysis: true
   confidence_threshold_log10: 1.0   # high < 1.0, moderate 1.0-2.0
-  # DACS consensus model:
-  #   "dacs_sig" = real-data-optimised v6 (held-out MALE 0.37; recommended)
-  #   "v5"       = publication 4-method DACS (held-out MALE 1.72)
+  # DACS consensus model (publication = DACS-Sig). The version is determined
+  # solely by the ESM-2 gate below:
+  #   esm2_gate: false -> DACS-Sig v6 (held-out MALE 0.37; default)
+  #   esm2_gate: true  -> DACS-Sig v7 (ESM-2 reliability gate; held-out 0.30)
+  # "v5" selects the DEPRECATED legacy 4-method DACS (held-out MALE 1.72) and is
+  # kept only for backward compatibility.
   dacs_mode: "dacs_sig"
-  # Optional ESM-2 sequence-reliability gate (v7). Needs the [gpu] extra
-  # (torch + fair-esm); disabled automatically when ESM-2 is unavailable.
-  # Reported as an honest negative ablation, so it is off by default.
+  # ESM-2 sequence-reliability gate -> switches DACS-Sig v6 (false) / v7 (true).
+  # The gate needs the [gpu] extra (torch + fair-esm) to score new sequences and
+  # disables itself automatically when ESM-2 is unavailable. Reported as an
+  # honest negative ablation, so it is off by default (i.e. v6).
   esm2_gate: false
 
 # ── Candidate ranking ──

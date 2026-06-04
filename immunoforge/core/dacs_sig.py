@@ -166,8 +166,9 @@ def dacs_sig_log_kd(bsa_kd: float, prodigy_kd: float, rosetta_kd: float,
             and the v6 fixed ensemble weight is used (with a warning).
 
     Returns:
-        dict with ``log_kd``, ``kd_nM``, ``ensemble_weight``, ``mode`` and the
-        intermediate ``calibrated_log_kd`` / ``b0_log_kd``.
+        dict with ``log_kd``, ``kd_nM``, ``ensemble_weight``, ``mode``,
+        ``version`` (``"v6"`` or ``"v7"``) and the intermediate
+        ``calibrated_log_kd`` / ``b0_log_kd``.
     """
     cal = _calibration()
     calibrated = adaptive_log_consensus(bsa_kd, prodigy_kd, rosetta_kd,
@@ -175,6 +176,7 @@ def dacs_sig_log_kd(bsa_kd: float, prodigy_kd: float, rosetta_kd: float,
     b0_log = _safe_log(b0_kd)
 
     mode = "dacs_sig_v6"
+    version = "v6"
     if esm2_gate:
         if esm2_ppl is None:
             logger.warning(
@@ -186,6 +188,7 @@ def dacs_sig_log_kd(bsa_kd: float, prodigy_kd: float, rosetta_kd: float,
         else:
             ens = gate_weight(esm2_ppl)
             mode = "dacs_sig_v7_gate"
+            version = "v7"
     else:
         ens = cal["ensemble_b0"]
 
@@ -197,6 +200,7 @@ def dacs_sig_log_kd(bsa_kd: float, prodigy_kd: float, rosetta_kd: float,
         "calibrated_log_kd": calibrated,
         "b0_log_kd": b0_log,
         "mode": mode,
+        "version": version,
     }
 
 
